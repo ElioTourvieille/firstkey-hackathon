@@ -1,24 +1,18 @@
 import Home from "./inner";
-import { preloadQuery, preloadedQueryResult } from "convex/nextjs";
-import { api } from "@/convex/_generated/api";
+import AuthGate from "@/components/AuthGate";
 
-export default async function ServerPage() {
-  const preloaded = await preloadQuery(api.myFunctions.listNumbers, {
-    count: 3,
-  });
-
-  const data = preloadedQueryResult(preloaded);
-
+// Static export: there is no server to render this page per-request, so all
+// data loading is client-side (see inner.tsx). Route protection is enforced
+// client-side via <AuthGate> instead of proxy.ts (middleware doesn't run
+// under static export either). The real authorization boundary is whatever
+// the Convex functions themselves check (ctx.auth) - this only gates the UI.
+export default function ServerPage() {
   return (
-    <main className="p-8 flex flex-col gap-4 mx-auto max-w-2xl">
-      <h1 className="text-4xl font-bold text-center">Convex + Next.js</h1>
-      <div className="flex flex-col gap-4 bg-slate-200 dark:bg-slate-800 p-4 rounded-md">
-        <h2 className="text-xl font-bold">Non-reactive server-loaded data</h2>
-        <code>
-          <pre>{JSON.stringify(data, null, 2)}</pre>
-        </code>
-      </div>
-      <Home preloaded={preloaded} />
-    </main>
+    <AuthGate>
+      <main className="p-8 flex flex-col gap-4 mx-auto max-w-2xl">
+        <h1 className="text-4xl font-bold text-center">Convex + Next.js</h1>
+        <Home />
+      </main>
+    </AuthGate>
   );
 }

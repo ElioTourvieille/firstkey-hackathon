@@ -6,6 +6,14 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Static export: the frontend is hosted by @convex-dev/static-hosting on
+  // convex.site, not by a Next.js server. No middleware, no server actions,
+  // no request-time server rendering.
+  output: "export",
+  distDir: "dist",
+  images: {
+    unoptimized: true,
+  },
 };
 
 export default nextConfig;
