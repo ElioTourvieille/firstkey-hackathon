@@ -8,7 +8,11 @@
  * @module
  */
 
-import type * as myFunctions from "../myFunctions.js";
+import type * as agencies from "../agencies.js";
+import type * as firecrawl from "../firecrawl.js";
+import type * as lib_hash from "../lib/hash.js";
+import type * as listings from "../listings.js";
+import type * as seed from "../seed.js";
 
 import type {
   ApiFromModules,
@@ -17,7 +21,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  myFunctions: typeof myFunctions;
+  agencies: typeof agencies;
+  firecrawl: typeof firecrawl;
+  "lib/hash": typeof lib_hash;
+  listings: typeof listings;
+  seed: typeof seed;
 }>;
 
 /**
