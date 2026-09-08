@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
+import { matchListing } from "./matching";
 
 // Admin-only helper for local testing, not part of the app's public API:
 // creates one market + one agency so convex/firecrawl.ts has something to
@@ -30,6 +31,45 @@ export const seedAgency = internalMutation({
     });
 
     return { marketId, agencyId };
+  },
+});
+
+// Dev-only helper for testing convex/matching.ts and profiles:myMatches.
+// `userId` must be the real Clerk subject of the account you'll sign in
+// with (ctx.auth.getUserIdentity().subject) — otherwise myMatches has
+// nothing to key off. Run with:
+//   npx convex run seed:seedProfile '{"userId":"user_...","marketId":"...","budgetMax":4800,"roomsMin":3,"pitch":"..."}'
+export const seedProfile = internalMutation({
+  args: {
+    userId: v.string(),
+    marketId: v.id("markets"),
+    budgetMax: v.number(),
+    roomsMin: v.number(),
+    moveInDate: v.optional(v.string()),
+    pitch: v.string(),
+  },
+  returns: v.id("profiles"),
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("profiles", args);
+  },
+});
+
+// Dev-only: re-run matching against every listing in a market. Matching
+// only triggers from listings:upsertBatch, so a listing crawled before a
+// profile existed needs this to pick up the new profile — run it right
+// after seedProfile if you're testing against already-crawled listings.
+export const rematchMarket = internalMutation({
+  args: { marketId: v.id("markets") },
+  returns: v.object({ checked: v.number() }),
+  handler: async (ctx, args) => {
+    const listings = await ctx.db
+      .query("listings")
+      .withIndex("by_market_status", (q) => q.eq("marketId", args.marketId))
+      .take(500);
+    for (const listing of listings) {
+      await matchListing(ctx, listing._id);
+    }
+    return { checked: listings.length };
   },
 });
 

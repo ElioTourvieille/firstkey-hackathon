@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, query } from "./_generated/server";
+import { matchListing } from "./matching";
 
 // Public: powers the homepage feed, which must render without a login (see
 // AGENTS.md — the feed is the one thing a judge must see with zero auth).
@@ -90,11 +91,14 @@ export const upsertBatch = internalMutation({
           surfaceM2: listing.surfaceM2,
           address: listing.address,
         });
+        // Price/rooms can drift between crawls, so a previously-unmatched
+        // listing can become a match (or vice versa) — re-check every time.
+        await matchListing(ctx, existing._id);
         updated++;
         continue;
       }
 
-      await ctx.db.insert("listings", {
+      const listingId = await ctx.db.insert("listings", {
         agencyId: args.agencyId,
         marketId: args.marketId,
         url: listing.url,
@@ -107,6 +111,7 @@ export const upsertBatch = internalMutation({
         status: "new",
         firstSeenAt: Date.now(),
       });
+      await matchListing(ctx, listingId);
       inserted++;
     }
 
