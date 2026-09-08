@@ -6,7 +6,10 @@ import staticHosting from "@convex-dev/static-hosting/convex.config";
 // static site can own the root.
 const app = defineApp({
   httpPrefix: "/api",
-  env: { FIRECRAWL_API_KEY: v.optional(v.string()) },
+  env: {
+    FIRECRAWL_API_KEY: v.optional(v.string()),
+    OPENAI_API_KEY: v.optional(v.string()),
+  },
 });
 app.use(staticHosting, { httpPrefix: "/" });
 

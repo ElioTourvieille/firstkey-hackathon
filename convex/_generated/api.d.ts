@@ -14,6 +14,7 @@ import type * as lib_hash from "../lib/hash.js";
 import type * as lib_matching from "../lib/matching.js";
 import type * as listings from "../listings.js";
 import type * as matching from "../matching.js";
+import type * as openai from "../openai.js";
 import type * as profiles from "../profiles.js";
 import type * as seed from "../seed.js";
 
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   "lib/matching": typeof lib_matching;
   listings: typeof listings;
   matching: typeof matching;
+  openai: typeof openai;
   profiles: typeof profiles;
   seed: typeof seed;
 }>;

@@ -1,6 +1,19 @@
 import { v } from "convex/values";
-import { query } from "./_generated/server";
+import { internalQuery, query } from "./_generated/server";
 import { isMatch } from "./lib/matching";
+import schema from "./schema";
+
+// Internal-only: fetched by convex/openai.ts to draft an inquiry. Returns
+// the full doc (including `pitch`, free text the tenant wrote themselves —
+// not third-party PII like agencies.contactEmail), so this must stay
+// internal, never a public query.
+export const get = internalQuery({
+  args: { profileId: v.id("profiles") },
+  returns: v.union(schema.doc("profiles"), v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db.get("profiles", args.profileId);
+  },
+});
 
 // Same safe subset as listings:listPublic — never agencies.contactEmail.
 const matchedListingValidator = v.object({

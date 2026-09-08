@@ -1,6 +1,16 @@
 import { v } from "convex/values";
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 import { matchListing } from "./matching";
+import schema from "./schema";
+
+// Internal-only: fetched by convex/openai.ts to draft an inquiry.
+export const get = internalQuery({
+  args: { listingId: v.id("listings") },
+  returns: v.union(schema.doc("listings"), v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db.get("listings", args.listingId);
+  },
+});
 
 // Public: powers the homepage feed, which must render without a login (see
 // AGENTS.md — the feed is the one thing a judge must see with zero auth).
