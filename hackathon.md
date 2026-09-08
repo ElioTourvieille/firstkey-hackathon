@@ -2,17 +2,17 @@
 
 - **Project:** firstkey-hackathon
 - **Event:** Convex All Gas Hackathon
-- **What it does:** Not documented yet
+- **What it does:** Crawls rental-agency listing pages with Firecrawl and stores structured Swiss rental listings in Convex, on a schema built to match them against renter profiles and reach out to agencies.
 - **Live app:** not deployed
 - **Repo:** https://github.com/ElioTourvieille/firstkey-hackathon
 - **Frontend:** Convex static hosting
 - **Convex deployment:** not deployed
 - **Components:** @convex-dev/static-hosting
-- **Convex features:** schema, tables, query, mutation, action, realtime queries
+- **Convex features:** schema, tables, query, mutation, action, internal functions, realtime queries
 - **Auth:** Clerk
 - **AI models:** none
 - **Started:** 2026-08-26T11:58:52Z
-- **Last updated:** 2026-08-26T16:20:05Z
+- **Last updated:** 2026-08-27T16:17:06Z
 
 ## Log
 
@@ -39,3 +39,17 @@ demo page from `preloadQuery` to reactive `useQuery`, since static export has
 no per-request server to preload from
 (`components/AuthGate.tsx`, `app/layout.tsx`, `app/page.tsx`,
 `app/server/page.tsx`, `app/server/inner.tsx`).
+
+### 2026-08-27 - a157e9d
+Added a Firecrawl-based crawler: `crawlAgency` scrapes an agency's listings
+page with a structured JSON extraction schema and upserts the results into
+`listings`, deduping on a hash of the listing's canonical URL. Dedup was
+originally keyed on url+price+rooms per the schema, but Firecrawl's LLM
+extraction returns an inconsistent `rooms` value across re-crawls of the
+same unchanged listing, which produced duplicate rows — caught by testing
+against a real agency page and fixed before committing. Convex features:
+internal queries/mutations, an action calling a third-party API
+(`convex/firecrawl.ts`, `convex/listings.ts`, `convex/agencies.ts`,
+`convex/lib/hash.ts`). Also removed the leftover `numbers`-table template
+demo (`convex/myFunctions.ts`, `app/server/`) that the real schema no
+longer supports, and trimmed `app/page.tsx` down to the Clerk auth shell.
