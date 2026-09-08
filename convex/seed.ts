@@ -45,7 +45,7 @@ export const clearListings = internalMutation({
       .withIndex("by_agency", (q) => q.eq("agencyId", args.agencyId))
       .take(500);
     for (const listing of listings) {
-      await ctx.db.delete(listing._id);
+      await ctx.db.delete("listings", listing._id);
       deleted++;
     }
     return { deleted };

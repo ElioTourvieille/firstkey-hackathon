@@ -8,6 +8,6 @@ export const get = internalQuery({
   args: { agencyId: v.id("agencies") },
   returns: v.union(schema.doc("agencies"), v.null()),
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.agencyId);
+    return await ctx.db.get("agencies", args.agencyId);
   },
 });

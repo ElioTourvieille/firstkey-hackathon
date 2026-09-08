@@ -1,5 +1,53 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import { internalMutation, query } from "./_generated/server";
+
+// Public: powers the homepage feed, which must render without a login (see
+// AGENTS.md — the feed is the one thing a judge must see with zero auth).
+// Only ever returns listing fields plus the agency's display name — never
+// `agencies.contactEmail`, which stays server-side.
+export const listPublic = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("listings"),
+      title: v.string(),
+      url: v.string(),
+      priceChf: v.number(),
+      rooms: v.number(),
+      surfaceM2: v.optional(v.number()),
+      address: v.optional(v.string()),
+      status: v.union(
+        v.literal("new"),
+        v.literal("matched"),
+        v.literal("contacted"),
+        v.literal("replied"),
+      ),
+      firstSeenAt: v.number(),
+      agencyName: v.string(),
+    }),
+  ),
+  handler: async (ctx) => {
+    const listings = await ctx.db.query("listings").order("desc").take(100);
+
+    return await Promise.all(
+      listings.map(async (listing) => {
+        const agency = await ctx.db.get("agencies", listing.agencyId);
+        return {
+          _id: listing._id,
+          title: listing.title,
+          url: listing.url,
+          priceChf: listing.priceChf,
+          rooms: listing.rooms,
+          surfaceM2: listing.surfaceM2,
+          address: listing.address,
+          status: listing.status,
+          firstSeenAt: listing.firstSeenAt,
+          agencyName: agency?.name ?? "Unknown agency",
+        };
+      }),
+    );
+  },
+});
 
 // Called by convex/firecrawl.ts after extracting listings from an agency's
 // listingsUrl. Dedups on sourceHash (hash of url+price+rooms) so re-crawling
@@ -35,7 +83,7 @@ export const upsertBatch = internalMutation({
         // Same listing (same canonical URL) seen again: refresh the fields
         // that can drift between crawls (price, rooms, ...) but keep
         // `status` and `firstSeenAt` — this is not a new listing.
-        await ctx.db.patch(existing._id, {
+        await ctx.db.patch("listings", existing._id, {
           title: listing.title,
           priceChf: listing.priceChf,
           rooms: listing.rooms,
@@ -62,7 +110,7 @@ export const upsertBatch = internalMutation({
       inserted++;
     }
 
-    await ctx.db.patch(args.agencyId, { lastCrawledAt: Date.now() });
+    await ctx.db.patch("agencies", args.agencyId, { lastCrawledAt: Date.now() });
 
     return { inserted, updated };
   },
