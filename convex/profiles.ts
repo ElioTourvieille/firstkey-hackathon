@@ -15,6 +15,22 @@ export const get = internalQuery({
   },
 });
 
+// Internal-only, same PII reasoning as `get` above. Shared by every
+// authenticated query/action that needs "the signed-in user's own
+// profile" (myMatches, openai:draftMyInquiry, agentmail:sendInquiry) so
+// there's exactly one place that resolves identity -> profile.
+export const getByUserId = internalQuery({
+  args: { userId: v.string() },
+  returns: v.union(schema.doc("profiles"), v.null()),
+  handler: async (ctx, args) => {
+    const [profile] = await ctx.db
+      .query("profiles")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .take(1);
+    return profile ?? null;
+  },
+});
+
 // Same safe subset as listings:listPublic — never agencies.contactEmail.
 const matchedListingValidator = v.object({
   _id: v.id("listings"),

@@ -1,18 +1,39 @@
 import { v } from "convex/values";
-import { internalAction, env } from "./_generated/server";
+import { internalAction, action, env } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Doc } from "./_generated/dataModel";
+
+// PUBLIC entry point: drafts a message for the signed-in user's own
+// listing match. `profileId` is resolved from identity, never taken from
+// the client — same reasoning as agentmail:sendInquiry not taking one —
+// so there's no ownership check to get wrong.
+export const draftMyInquiry = action({
+  args: { listingId: v.id("listings") },
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not signed in");
+
+    const profile: Doc<"profiles"> | null = await ctx.runQuery(internal.profiles.getByUserId, {
+      userId: identity.subject,
+    });
+    if (!profile) throw new Error("No profile for the signed-in user");
+
+    return await ctx.runAction(internal.openai.draftInquiry, {
+      profileId: profile._id,
+      listingId: args.listingId,
+    });
+  },
+});
 
 // Drafts the applicant's message to send to an agency for one
 // listing/profile pair — direct `fetch` to OpenAI's API (gpt-4o-mini), not
 // the Convex AI Gateway (a paid-plan feature). See the
 // matching-outreach-firstkey skill, flow step 3.
 //
-// internalAction, not a public action: it reads `profiles.pitch` (the
-// tenant's own free text) for an arbitrary `profileId` with no ownership
-// check yet. Once this is wired into a UI (alongside convex/agentmail.ts —
-// draft and send belong in one review step, not two), that UI-facing
-// wrapper must verify the caller owns the profile before calling this.
+// internalAction: takes a bare profileId with no ownership check, so it
+// must never be reachable directly from the client — draftMyInquiry above
+// is the public, identity-scoped entry point.
 export const draftInquiry = internalAction({
   args: { profileId: v.id("profiles"), listingId: v.id("listings") },
   returns: v.string(),

@@ -11,6 +11,7 @@
     "deploy": "npx @convex-dev/static-hosting deploy"
   },
   "dependencies": {
+    "@agentmail/convex": "^0.1.0",
     "@clerk/clerk-react": "^5.61.3",
     "@convex-dev/static-hosting": "^0.2.1",
     "convex": "^1.44.0",

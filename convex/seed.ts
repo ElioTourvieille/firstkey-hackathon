@@ -54,6 +54,40 @@ export const seedProfile = internalMutation({
   },
 });
 
+// Dev-only helper for testing convex/agentmail.ts without ever emailing a
+// real agency: creates one listing under an existing agency, so you can
+// point that agency's `contactEmail` at an address you control and run
+// agentmail:sendInquiry end-to-end against it. Run with:
+//   npx convex run seed:seedListing '{"agencyId":"...","marketId":"...","title":"...","url":"https://example.com/test-listing","priceChf":4500,"rooms":3}'
+export const seedListing = internalMutation({
+  args: {
+    agencyId: v.id("agencies"),
+    marketId: v.id("markets"),
+    title: v.string(),
+    url: v.string(),
+    priceChf: v.number(),
+    rooms: v.number(),
+    surfaceM2: v.optional(v.number()),
+    address: v.optional(v.string()),
+  },
+  returns: v.id("listings"),
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("listings", {
+      agencyId: args.agencyId,
+      marketId: args.marketId,
+      title: args.title,
+      url: args.url,
+      priceChf: args.priceChf,
+      rooms: args.rooms,
+      surfaceM2: args.surfaceM2,
+      address: args.address,
+      sourceHash: `seed-${args.url}`,
+      status: "new",
+      firstSeenAt: Date.now(),
+    });
+  },
+});
+
 // Dev-only: re-run matching against every listing in a market. Matching
 // only triggers from listings:upsertBatch, so a listing crawled before a
 // profile existed needs this to pick up the new profile — run it right

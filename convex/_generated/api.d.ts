@@ -9,7 +9,9 @@
  */
 
 import type * as agencies from "../agencies.js";
+import type * as agentmail from "../agentmail.js";
 import type * as firecrawl from "../firecrawl.js";
+import type * as http from "../http.js";
 import type * as lib_hash from "../lib/hash.js";
 import type * as lib_matching from "../lib/matching.js";
 import type * as listings from "../listings.js";
@@ -26,7 +28,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   agencies: typeof agencies;
+  agentmail: typeof agentmail;
   firecrawl: typeof firecrawl;
+  http: typeof http;
   "lib/hash": typeof lib_hash;
   "lib/matching": typeof lib_matching;
   listings: typeof listings;
@@ -64,4 +68,5 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   staticHosting: import("@convex-dev/static-hosting/_generated/component.js").ComponentApi<"staticHosting">;
+  agentmail: import("@agentmail/convex/_generated/component.js").ComponentApi<"agentmail">;
 };

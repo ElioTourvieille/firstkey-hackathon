@@ -1,8 +1,10 @@
 "use client";
 
-import { Authenticated, Unauthenticated, useQuery } from "convex/react";
+import { useState } from "react";
+import { Authenticated, Unauthenticated, useAction, useQuery } from "convex/react";
 import { SignUpButton, SignInButton, UserButton } from "@clerk/clerk-react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 
 export default function Home() {
   return (
@@ -82,7 +84,10 @@ function MyMatches() {
       <h2 className="text-xl font-semibold">Your matches</h2>
       <ul className="flex flex-col gap-4">
         {matches.map((listing) => (
-          <ListingCard key={listing._id} listing={listing} />
+          <li key={listing._id} className="flex flex-col gap-2">
+            <ListingCard listing={listing} />
+            <Outreach listingId={listing._id} />
+          </li>
         ))}
       </ul>
     </section>
@@ -102,7 +107,7 @@ type ListingCardData = {
 
 function ListingCard({ listing }: { listing: ListingCardData }) {
   return (
-    <li className="border border-slate-200 dark:border-slate-800 rounded-md p-4 flex flex-col gap-1">
+    <div className="border border-slate-200 dark:border-slate-800 rounded-md p-4 flex flex-col gap-1">
       <a
         href={listing.url}
         target="_blank"
@@ -119,6 +124,97 @@ function ListingCard({ listing }: { listing: ListingCardData }) {
       <p className="text-xs text-slate-400 dark:text-slate-500">
         {listing.agencyName}
       </p>
-    </li>
+    </div>
+  );
+}
+
+// Draft -> human edit -> explicit send, for one matched listing. This is
+// the only place in the app that can ever call agentmail:sendInquiry — no
+// automatic trigger exists anywhere else. Sending is disabled until the
+// tenant has actually looked at and (if needed) edited the draft.
+function Outreach({ listingId }: { listingId: string }) {
+  const draftMyInquiry = useAction(api.openai.draftMyInquiry);
+  // agentmail:sendInquiry is an action (it does a real fetch to AgentMail's
+  // API), not a mutation — see convex/agentmail.ts for why. It resolves
+  // synchronously with the final result, no async status to poll.
+  const sendInquiry = useAction(api.agentmail.sendInquiry);
+
+  const [draft, setDraft] = useState<string | null>(null);
+  const [drafting, setDrafting] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState<{ agentmailMessageId: string } | null>(null);
+
+  async function handleDraft() {
+    setError(null);
+    setDrafting(true);
+    try {
+      const text = await draftMyInquiry({ listingId: listingId as Id<"listings"> });
+      setDraft(text);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to draft the message");
+    } finally {
+      setDrafting(false);
+    }
+  }
+
+  async function handleSend() {
+    if (!draft) return;
+    setError(null);
+    setSending(true);
+    try {
+      const result = await sendInquiry({ listingId: listingId as Id<"listings">, text: draft });
+      setSent({ agentmailMessageId: result.agentmailMessageId });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send the message");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  if (sent) {
+    return <p className="text-sm text-slate-500 dark:text-slate-400">Sent.</p>;
+  }
+
+  if (draft === null) {
+    return (
+      <div className="flex flex-col gap-1">
+        <button
+          onClick={handleDraft}
+          disabled={drafting}
+          className="self-start border border-foreground px-3 py-1 rounded-md text-sm disabled:opacity-50"
+        >
+          {drafting ? "Drafting…" : "Draft application"}
+        </button>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        rows={6}
+        className="border border-slate-300 dark:border-slate-700 rounded-md p-2 text-sm bg-background"
+      />
+      <div className="flex flex-row gap-2">
+        <button
+          onClick={handleSend}
+          disabled={sending || draft.trim().length === 0}
+          className="self-start bg-foreground text-background px-3 py-1 rounded-md text-sm disabled:opacity-50"
+        >
+          {sending ? "Sending…" : "Send"}
+        </button>
+        <button
+          onClick={() => setDraft(null)}
+          className="self-start border border-foreground px-3 py-1 rounded-md text-sm"
+        >
+          Discard
+        </button>
+      </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+    </div>
   );
 }

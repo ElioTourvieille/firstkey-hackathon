@@ -50,12 +50,25 @@ export default defineSchema({
   inquiries: defineTable({
     listingId: v.id("listings"),
     profileId: v.id("profiles"),
-    agentmailThreadId: v.string(),
+    // AgentMail's own message id for this send. convex/agentmail.ts sends
+    // via a direct REST call (POST /inboxes/{id}/messages/send), not the
+    // @agentmail/convex component's sendMessage/workpool path — that path
+    // is broken (the component never declares AGENTMAIL_API_KEY in its own
+    // convex.config.ts, so it can't read it from inside the component's
+    // isolated env, confirmed against the real API). The REST call returns
+    // {message_id, thread_id} synchronously, so both this and
+    // agentmailThreadId below are known and set immediately at send time —
+    // no async backfill needed.
+    outboundId: v.string(),
+    agentmailThreadId: v.optional(v.string()),
     status: v.union(
       v.literal("sent"),
       v.literal("replied"),
       v.literal("closed"),
     ),
     sentAt: v.number(),
-  }).index("by_listing", ["listingId"]),
+  })
+    .index("by_listing", ["listingId"])
+    .index("by_profile", ["profileId"])
+    .index("by_outboundId", ["outboundId"]),
 });
