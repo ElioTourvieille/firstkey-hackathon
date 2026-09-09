@@ -2,7 +2,7 @@
 
 > This file is written **for the agent**, not for public documentation. It **supplements**—and never replaces—the auto-generated block `<!-- convex-ai-start -->...<!-- convex-ai-end -->` already present at the top of `AGENTS.md`/`CLAUDE.md` in this repo, managed by `npx convex ai-files install`. Do not delete or duplicate it here: paste the content below **after** this block.
 >
-> Last sync: actual code from the repo (commit `a157e9d`) + strategy conversation “Analysis and Strategy for a Winning Project” (analysis of hackathon rules + architecture decisions). If the two diverge, this file explicitly flags the discrepancy rather than silently overriding it.
+> Last sync: actual code + prod deployment state as of 2026-09-09 (commits through `e358214`, plus a same-day prod env/deploy sync — see `hackathon.md`) + strategy conversation "Analysis and Strategy for a Winning Project". If the two diverge, this file explicitly flags the discrepancy rather than silently overriding it.
 
 ## Hackathon Context — Rules and Judging Criteria
 
@@ -13,7 +13,7 @@
   2. **Actual Convex depth** (queries/mutations/live updates/auth/components) — *"A thin frontend on a hosted page does not count."*
   3. **Sponsors must actually do real work within the product** — Firecrawl, OpenAI, and AgentMail must each perform real work **at runtime**, not just be mentioned or used for coding (Codex does not count for OpenAI).
   4. Functional public URL, short video demo, social traction.
-- **Non-negotiable judging requirement currently violated by the code**: *the listing feed must be publicly visible without requiring a login.* A judge opening the URL `convex.site` must see the product in action immediately — Clerk should only protect the personal profile and inbox, never the main feed.
+- **Non-negotiable judging requirement**: *the listing feed must be publicly visible without requiring a login.* ✅ Fixed `e30fe46` — Clerk now only protects the personal profile and inbox, never the main feed. **However**: as of 2026-09-09 prod's `listings`/`agencies` tables are empty (only dev has ever been seeded), so a judge visiting the public URL right now sees a working but empty feed. Seeding prod with real agencies is the next priority — see Open Issues.
 
 ## Product
 
@@ -29,16 +29,16 @@ The product then matches these listings against a search profile (budget, number
 - **Public vs. authenticated**: The listing feed must remain public (see judgment constraint above); only `/profile` and the inbox require Clerk.
 - **Strictly server-side**: The Firecrawl call (API key), the OpenAI call (API key), and anything related to `agencies.contactEmail`.
 
-## Discrepancies between strategy and current code — to be fixed as a priority
+## Discrepancies between strategy and current code — history (all resolved as of 2026-09-09)
 
-The diagram accurately reflects the agreed-upon architecture. The rest is significantly behind schedule (Week 1 is almost over, Week 2 hasn’t started, even though we’re roughly halfway through the 3-week timeline). In order of impact on the score:
+Kept for context; every item below is now closed. See `hackathon.md` for the commit/date of each fix.
 
-1. **🔴 The feed is not public.** `app/page.tsx` forces a login (`Unauthenticated` → only sign-in/sign-up buttons; nothing visible without an account). This is a direct violation of the most explicit evaluation rule we’ve identified. Must be fixed before any other UI features.
-2. **🔴 OpenAI is not integrated.** No dependencies, no calls—`convex/openai.ts` (application text generation via `gpt-4o-mini`, direct `fetch` call, not the Convex AI Gateway reserved for paid plans) does not yet exist. Without this, one of the three required sponsors is at zero.
-3. **🔴 AgentMail is not integrated.** The schema anticipates `inquiries.agentmailThreadId`, but nothing sends or receives emails. Second required sponsor is at zero.
-4. **🟠 Matching does not exist.** `listings.status` never changes beyond `"new"`. This is the core of the value proposition (“we’ll find you a place that matches your profile”) and is currently missing from the demo.
-5. **🟡 The Firecrawl crawler uses direct REST `fetch`, not the official `@firecrawl/firecrawl-convex` component** identified in the strategy as the preferred choice for Convex depth (sustainable crawls, reactive progression written directly to the database). This is still a valid use of Firecrawl (the sponsor isn’t at zero), but it likely scores lower on the “Convex depth/components” criterion than expected. **Decision pending**: stick with the current implementation (already tested, works) or migrate to the official component before the deadline—don’t decide this alone; the risk of a failed rewrite with two weeks to go is real.
-6. **🟡 Deployment status to be reconfirmed.** A production deployment (`outstanding-malamute-184.convex.site`) was successful early in the project (just the Clerk shell). The `hackathon.md` file in the repo shows “not deployed” after the crawler was added—either it was never pushed after that commit, or the log is simply out of date. Check this first before building further on it: a broken redeployment discovered at the deadline is the worst-case scenario for this entire plan.
+1. **✅ The feed is not public.** Fixed `e30fe46`.
+2. **✅ OpenAI is not integrated.** Fixed `fc1317f` — `convex/openai.ts`, direct `fetch`, `gpt-4o-mini`.
+3. **✅ AgentMail is not integrated.** Fixed `e358214` — manual-send-only, `convex/agentmail.ts`.
+4. **✅ Matching does not exist.** Fixed `3fb390c` — `convex/matching.ts`.
+5. **✅ Firecrawl direct `fetch` vs. official component — decided.** Keep the direct REST `fetch`. Confirmed with the project owner 2026-09-09: not worth the rewrite risk this late, and the sponsor already counts (real runtime call) with this approach.
+6. **✅ Deployment status — reconfirmed and fixed.** Prod (`outstanding-malamute-184`) was missing all four sponsor env vars (`FIRECRAWL_API_KEY`, `OPENAI_API_KEY`, `AGENTMAIL_API_KEY`, `AGENTMAIL_INBOX_ID`) even though the code was merged — fixed 2026-09-09 (env vars copied from dev, full `typecheck → lint → build → deploy` pushed to prod). **New follow-up, not yet fixed**: prod's database is empty (dev is the only deployment ever seeded) — see Open Issues.
 
 ## Mandatory Workflow (Hackathon Edition)
 
@@ -57,42 +57,53 @@ See the `origin-studio-hackathon-workflow` skill. Summary:
 | Skill | Type | Load when... |
 |---|---|---|
 | `convex`, `convex-quickstart`, `convex-crons`, `convex-env`, `convex-auth`, `convex-setup-auth`, `convex-authz`, `convex-seed`, `convex-test`, `convex-optimize`, `convex-reviewer`, `convex-deploy-guard`, … (complete list: `skills-lock.json`) | Official `get-convex/agent-skills` (already installed) | Any Convex syntax/API |
-| `firecrawl-crawler-firstkey` | Project | Modify crawling, add a control panel, address point 5 above |
-| `clerk-static-export-firstkey` | Project | Auth, new page/route, make the feed public (point 1) |
-| `matching-outreach-firstkey` | Project | Build matching (OpenAI) + outreach (AgentMail) — workflow now decided, just not coded yet |
+| `firecrawl-crawler-firstkey` | Project | Modify crawling, add a control panel, add a new agency |
+| `clerk-static-export-firstkey` | Project | Auth, new page/route, any component touching Clerk |
+| `matching-outreach-firstkey` | Project | Touch matching (OpenAI) or outreach (AgentMail) — both implemented, this documents the decisions behind them |
 | `origin-studio-hackathon-workflow` | Personal, reusable | Still in the background |
 
 ## Structure du projet
 
 - `convex/schema.ts` — source de vérité du modèle de données, fidèle à l'architecture décidée.
-- `convex/firecrawl.ts` — `action` en `fetch` REST direct (voir écart n°5).
-- `convex/listings.ts`, `convex/agencies.ts` — uniquement `internalMutation`/`internalQuery`. **Toute nouvelle fonction publique sur `agencies` doit omettre `contactEmail`.**
-- `convex/lib/hash.ts` — module utilitaire pur, pas d'endpoint.
-- `convex/seed.ts` — dev-only.
+- `convex/firecrawl.ts` — `action` en `fetch` REST direct (décision confirmée, voir écart n°5 ci-dessus — ne pas migrer vers `@firecrawl/firecrawl-convex` sans re-décision explicite).
+- `convex/listings.ts`, `convex/agencies.ts` — uniquement `internalMutation`/`internalQuery`, sauf `listings.listPublic` (publique, feed public). **Toute nouvelle fonction publique sur `agencies` doit omettre `contactEmail`.**
+- `convex/lib/hash.ts` — dédup par hash d'URL canonique.
+- `convex/lib/matching.ts` — prédicat `isMatch` (prix + pièces, pas de `moveInDate`), partagé entre `convex/matching.ts` (écrit `listings.status`) et `convex/profiles.ts` (lit les matches du profil courant).
+- `convex/matching.ts` — matching listing→profils, déclenché depuis `listings.upsertBatch`.
+- `convex/openai.ts` — `draftInquiry` (internal) / `draftMyInquiry` (public, scopé identité), `fetch` direct vers `gpt-4o-mini`.
+- `convex/agentmail.ts` — `sendInquiry`, déclenché uniquement par un bouton UI explicite (jamais automatique). Envoi en `fetch` REST direct (contournement de deux bugs du composant officiel `@agentmail/convex` — voir commentaire en tête du fichier); le composant reste utilisé pour la route webhook et la query réactive d'inbox.
+- `convex/profiles.ts` — `myMatches` (authentifiée, recalcule le match plutôt que de faire confiance au `status` grossier).
+- `convex/seed.ts` — dev-only, jamais exécuté sur prod pour l'instant (voir Open Issues : prod n'a aucune donnée).
 - `components/AuthGate.tsx` / `components/ConvexClientProvider.tsx` — Clerk confiné en Client Component (export statique).
-- `app/page.tsx` — **à corriger en priorité** : actuellement 100% gated, doit devenir feed public + zone authentifiée pour le profil/inbox.
-- Manquants par rapport au plan : `convex/crons.ts`, `convex/matching.ts`, `convex/openai.ts`, `convex/agentmail.ts`, `convex/profiles.ts`, `app/profile/`, `app/inbox/`, `convex/http.ts` (réservé via `httpPrefix: "/api"` dans `convex.config.ts`, utile pour un futur webhook AgentMail).
+- `app/page.tsx` — feed public inconditionnel + zone authentifiée (profil/matches/inbox) gérée par Clerk uniquement pour le chrome de compte.
+- Toujours manquant par rapport au plan : `convex/crons.ts` (pas de re-crawl automatique, tout est déclenché manuellement), `app/profile/`, `app/inbox/` (dédiées — le flow actuel vit dans `app/page.tsx`).
 
 ## Tech Stack
 
 - Next.js 16 with **static export** (`output: "export"`, `distDir: "dist"`) — served by `@convex-dev/static-hosting`, no Next server.
 - Convex 1.44.
 - Clerk via `@clerk/clerk-react` (not `@clerk/nextjs`).
-- Firecrawl — direct REST `fetch` (see discrepancy #5).
-- **OpenAI — direct `fetch` call to the API (`gpt-4o-mini`), not the Convex AI Gateway** (reserved for paid plans). Decided but not implemented.
-- **AgentMail — official Convex component** planned (threads/labels/messages synchronized reactively). Decided but not implemented.
-- pnpm. Deployment: `npm run deploy` → `npx @convex-dev/static-hosting deploy`.
+- Firecrawl — direct REST `fetch`, confirmed final for this project (see discrepancy #5).
+- **OpenAI — direct `fetch` call to the API (`gpt-4o-mini`), not the Convex AI Gateway** (reserved for paid plans). Implemented, `convex/openai.ts`.
+- **AgentMail — direct REST `fetch` for sending** (workaround for two upstream bugs in `@agentmail/convex`, see `convex/agentmail.ts`), the official component still handles the webhook route and the reactive inbox query. Implemented.
+- pnpm. Deployment: `npm run deploy` → `npx @convex-dev/static-hosting deploy` (backend + static frontend, one shot). Non-interactive/CI deploys to prod need a one-shot prod deploy key (`npx convex deployment token create <name> --prod`, export as `CONVEX_DEPLOY_KEY`, delete right after) since `npx convex deploy` refuses to prompt for the dev→prod confirmation without a TTY.
 
-## Data Model (current state as of commit `a157e9d`)
+## Data Model (current state as of 2026-09-09)
 
-- `markets`, `agencies` (`contactEmail` is sensitive, never public), `listings` (`status: new|matched|contacted|replied`, only `"new"` is reached today, deduplication via canonical URL hash — see Firecrawl skill), `profiles` (schema ready, nothing reads/writes it), `inquiries` (schema ready, `agentmailThreadId` anticipates AgentMail, nothing implemented).
+- `markets`, `agencies` (`contactEmail` is sensitive, never public), `listings` (`status: new|matched|contacted|replied`; `new`/`matched` are live via `convex/matching.ts`, `contacted` is set on send, `replied` is schema-ready but nothing sets it yet — no inbound-reply handling exists), deduplication via canonical URL hash. `profiles` (read/written via `convex/profiles.ts`/`seed.ts`). `inquiries` (schema ready, `agentmailThreadId` populated by `convex/agentmail.ts:sendInquiry`).
+- **Dev (`clever-toucan-312`) has seed data (1 market/agency, some test listings/profiles); prod (`outstanding-malamute-184`) has zero rows in any table** — the app has never been seeded on prod. This is the current top-priority gap: the public feed is live and working but empty.
 
 ## Open Issues — truly unresolved (to be distinguished from “just not coded yet”)
 
-1. **Point 5 above**: Keep direct `fetch` for Firecrawl or migrate to `@firecrawl/firecrawl-convex`?
-2. **Exact matching formula**: the architecture states “compare to active listings in the same market”—the most likely interpretation is `priceChf <= budgetMax` and `rooms >= roomsMin`, but this has never been explicitly confirmed, and there’s no indication whether `moveInDate` should also be a filter. To be confirmed before coding `convex/matching.ts`.
-3. **Human review before sending**: Does a match automatically trigger the sending of an AgentMail, or is manual validation still required, at least during the hackathon? Strong recommendation: manual validation until we’ve tested the email template on at least one real agency.
-4. **Demo volume**: only one market/agency seeded so far; the plan was to reach ~30 real estate agencies by week 3—what volume should we aim for given the time remaining?
+1. **Prod has no data.** Next real task: seed prod with the 5-8 target agencies (see decision below) and run Firecrawl against them for real. Per the mandatory workflow, this needs explicit human sign-off before it happens (first real large-scale crawl against real agency sites) — do not just run it.
+2. **No automatic re-crawl.** `convex/crons.ts` still doesn't exist; every crawl is a manual `npx convex run firecrawl:...` call. Not blocking for the demo, but worth flagging if the demo needs listings to feel "live" without a manual step.
+3. **Inbound replies unhandled.** `listings.status = "replied"` and the "chat thread that updates in real time" from the product description have no implementation — `agentmail`'s webhook route exists (`convex/http.ts`) but nothing has been verified end-to-end for an agency's reply flowing back into the UI.
+
+### Resolved decisions (kept for the record, 2026-09-09)
+- **Firecrawl**: keep direct `fetch`, no migration to `@firecrawl/firecrawl-convex`.
+- **Matching formula**: `priceChf <= profile.budgetMax && rooms >= profile.roomsMin`, same market, no `moveInDate` filter (deliberately out of scope — no listing-availability field exists). Implemented in `convex/lib/matching.ts`.
+- **Human review before sending**: manual only, confirmed correct as implemented — `agentmail.sendInquiry` only ever fires from an explicit UI button.
+- **Demo volume**: target 5-8 real agencies (revised down from the original ~30, given ~13 days left as of 2026-09-09), not yet seeded on prod — see Open Issue #1 above.
 
 ## What the agent must never do
 

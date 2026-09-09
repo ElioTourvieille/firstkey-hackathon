@@ -2,17 +2,17 @@
 
 - **Project:** firstkey-hackathon
 - **Event:** Convex All Gas Hackathon
-- **What it does:** Crawls rental-agency listing pages with Firecrawl and stores structured Swiss rental listings in Convex, on a schema built to match them against renter profiles and reach out to agencies.
-- **Live app:** not deployed
+- **What it does:** Crawls rental-agency listing pages with Firecrawl, matches new listings against renter profiles, drafts a personalized application with OpenAI, and sends it via AgentMail — with a human reviewing (and, for now, manually triggering) every send.
+- **Live app:** https://outstanding-malamute-184.convex.site
 - **Repo:** https://github.com/ElioTourvieille/firstkey-hackathon
 - **Frontend:** Convex static hosting
-- **Convex deployment:** not deployed
-- **Components:** @convex-dev/static-hosting
-- **Convex features:** schema, tables, query, mutation, action, internal functions, realtime queries
+- **Convex deployment:** https://outstanding-malamute-184.convex.cloud
+- **Components:** @convex-dev/static-hosting, @agentmail/convex
+- **Convex features:** schema, tables, indexes, query, mutation, action, internal functions, HTTP actions, realtime queries
 - **Auth:** Clerk
-- **AI models:** none
+- **AI models:** gpt-4o-mini (direct fetch, not the Convex AI Gateway)
 - **Started:** 2026-08-26T11:58:52Z
-- **Last updated:** 2026-08-27T16:17:06Z
+- **Last updated:** 2026-09-09T08:45:17Z
 
 ## Log
 
@@ -53,3 +53,93 @@ internal queries/mutations, an action calling a third-party API
 `convex/lib/hash.ts`). Also removed the leftover `numbers`-table template
 demo (`convex/myFunctions.ts`, `app/server/`) that the real schema no
 longer supports, and trimmed `app/page.tsx` down to the Clerk auth shell.
+
+### 2026-09-08 - e30fe46
+Made the listings feed public. The homepage was gating 100% of its content
+behind Clerk auth — a direct violation of the hackathon's rule that a judge
+must see the product working with zero login. Added a public
+`listings.listPublic` query (returns listing fields plus the agency's name,
+never `agencies.contactEmail`) and rebuilt `app/page.tsx` so the feed
+renders unconditionally; auth now only gates the header's account chrome.
+Deployed this to prod (`outstanding-malamute-184`) — the first live
+deployment since the initial scaffold. Convex features: public query
+(`convex/listings.ts`, `app/page.tsx`).
+
+### 2026-09-08 - d4fc75a
+Added project skills and prompt docs (Clerk static-export constraints,
+Firecrawl crawler decisions, matching/outreach flow, hackathon workflow)
+and synced `AGENTS.md`/`CLAUDE.md`. No application code changed.
+
+### 2026-09-08 - 3fb390c
+Added listing-to-profile matching, the core of the product's value
+proposition. `matching.matchListing` compares a listing's price and room
+count against every profile in its market and flips `listings.status`
+between `"new"` and `"matched"` — and back, if a re-crawled listing's price
+rises out of a profile's budget. Triggered from `listings.upsertBatch`
+after every insert/update. Added `profiles.myMatches`, an authenticated
+query that recomputes the match per caller rather than trusting the coarse
+`status` flag (which only means "at least one profile in the market
+matches"), and a "Your matches" section in the UI. Verified against dev's
+real crawled listings before committing. Convex features: internal
+mutations, authenticated queries (`convex/matching.ts`,
+`convex/lib/matching.ts`, `convex/profiles.ts`, `app/page.tsx`).
+
+### 2026-09-08 - fc1317f
+Wired up OpenAI — one of the three sponsors required to do real work at
+runtime — to draft rental-application text from a profile's pitch and a
+listing's details. Direct `fetch` to the chat completions API
+(`gpt-4o-mini`), not the Convex AI Gateway. `openai.draftInquiry` is
+internal; `openai.draftMyInquiry` is the public, identity-scoped entry
+point added later the same day alongside the AgentMail send flow. Tested
+against the real API on dev. Convex features: action calling a third-party
+API (`convex/openai.ts`).
+
+### 2026-09-08 - e358214
+Sent the first real rental-inquiry emails through AgentMail — the last of
+the three required sponsors — to a self-controlled test inbox only, never
+a live agency. Found and worked around two bugs in the official
+`@agentmail/convex` component: its inbox-management functions are declared
+with a visibility that makes them unreachable from an app that installs
+it, and its send path can't read its own API key because the component
+never declares it as a component-level environment variable. Sending goes
+through direct AgentMail REST calls instead (same pattern as the Firecrawl
+and OpenAI integrations); the component still handles the webhook route
+and the reactive inbox query. `agentmail.sendInquiry` only ever fires from
+an explicit UI button — nothing in the codebase calls it automatically.
+Verified by sending a real test email and reading back the exact text that
+arrived. Pushed to the dev deployment only; prod still runs the
+public-feed-fix build from earlier today. Convex features: HTTP actions,
+registered component (`convex/agentmail.ts`, `convex/http.ts`,
+`convex/convex.config.ts`).
+
+### 2026-09-09 - working tree
+Closed three open decisions and a deployment gap found while auditing
+where the project actually stood (as opposed to what `hackathon.md` said):
+prod (`outstanding-malamute-184`) had only `CLERK_JWT_ISSUER_DOMAIN` set —
+none of `FIRECRAWL_API_KEY`, `OPENAI_API_KEY`, `AGENTMAIL_API_KEY`,
+`AGENTMAIL_INBOX_ID` — so a judge hitting the public URL would have hit
+"is not set" errors on every sponsor call, even though the matching
+dev-deployment code (all three sponsors, public feed) was already merged
+to `master`. Copied the four keys from dev to prod (`npx convex env set
+... --prod`, values never echoed to logs) and ran a full
+`typecheck → lint → build → deploy` (backend + static frontend) to prod
+via a one-shot, immediately-revoked prod deploy key (`npx convex
+deployment token create --prod`, used once, deleted right after) since
+`npx convex deploy` refuses to prompt for the dev→prod confirmation in a
+non-interactive shell. Verified prod serves HTTP 200 post-deploy.
+
+Also confirmed prod's `listings`/`agencies` tables are empty — dev is the
+only deployment ever seeded — so the public feed is live but shows
+nothing yet; seeding prod with real agencies is the next step and, per
+the mandatory workflow, needs explicit sign-off before running Firecrawl
+against real agency sites at any real volume.
+
+Resolved the three remaining open issues from `CLAUDE.md` with the
+project owner rather than deciding alone: (1) keep Firecrawl on direct
+`fetch`, no migration to `@firecrawl/firecrawl-convex` before the
+deadline; (2) matching formula confirmed as already implemented
+(`priceChf <= budgetMax && rooms >= roomsMin`, no `moveInDate` filter);
+(3) manual-send-only confirmed as already implemented and correct; (4)
+demo volume target set at 5-8 agencies, not the original ~30, given ~13
+days left. No application code changed — env/deploy operations and docs
+only.
