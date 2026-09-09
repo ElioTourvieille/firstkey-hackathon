@@ -34,6 +34,30 @@ export const seedAgency = internalMutation({
   },
 });
 
+// Dev-only helper for adding an agency to an EXISTING market. seedAgency
+// above always creates a brand-new market, which is wrong for "add one more
+// Geneva agency" — matching filters on `profile.marketId === listing.marketId`,
+// so two agencies sitting in two different "Geneva" market rows would never
+// match against the same profiles. Run with:
+//   npx convex run seed:seedAgencyInMarket '{"marketId":"...","agencyName":"...","listingsUrl":"...","contactEmail":"..."}'
+export const seedAgencyInMarket = internalMutation({
+  args: {
+    marketId: v.id("markets"),
+    agencyName: v.string(),
+    listingsUrl: v.string(),
+    contactEmail: v.string(),
+  },
+  returns: v.id("agencies"),
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("agencies", {
+      marketId: args.marketId,
+      name: args.agencyName,
+      listingsUrl: args.listingsUrl,
+      contactEmail: args.contactEmail,
+    });
+  },
+});
+
 // Dev-only helper for testing convex/matching.ts and profiles:myMatches.
 // `userId` must be the real Clerk subject of the account you'll sign in
 // with (ctx.auth.getUserIdentity().subject) — otherwise myMatches has

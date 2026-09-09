@@ -68,7 +68,7 @@ export const crawlAgency = action({
           {
             type: "json",
             prompt:
-              "Extract every rental listing shown on this page. priceChf is the monthly rent in Swiss francs as a plain number (no currency symbol or thousands separator). rooms is the number of rooms (e.g. 3.5). url is the absolute link to the listing's own detail page.",
+              "Extract every rental listing shown on this page that is located in the canton of Geneva, Switzerland (city of Geneva or a Geneva-canton municipality, postal codes 1200-1299) — skip listings elsewhere (e.g. Vaud, Neuchâtel, Zurich), even if they appear on the same page. priceChf is the monthly rent in Swiss francs as a plain number (no currency symbol or thousands separator). rooms is the number of rooms (e.g. 3.5). url is the absolute link to the listing's own detail page.",
             schema: LISTINGS_SCHEMA,
           },
         ],
