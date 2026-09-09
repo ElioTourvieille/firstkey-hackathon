@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** gpt-4o-mini (direct fetch, not the Convex AI Gateway)
 - **Started:** 2026-08-26T11:58:52Z
-- **Last updated:** 2026-09-09T08:45:17Z
+- **Last updated:** 2026-09-09T11:17:07Z
 
 ## Log
 
@@ -143,3 +143,40 @@ deadline; (2) matching formula confirmed as already implemented
 demo volume target set at 5-8 agencies, not the original ~30, given ~13
 days left. No application code changed — env/deploy operations and docs
 only.
+
+### 2026-09-09 - cb711bf
+Validated the full crawl→matching→draft chain end-to-end against fresh
+real data in dry-run (re-crawled Naef live: 11 found, 3 new; matching
+re-ran automatically; OpenAI drafted a coherent French application
+referencing the real listing and the real profile pitch) — then stopped
+before the send step. Asked explicitly whether the pilot's email should
+actually go out to Naef's real inbox; decided to stay dry-run, no email
+sent to any agency today.
+
+Then expanded demo coverage per the decided 5-8 target: researched real
+Geneva rental agencies (de Rham turned out to be Vaud-only, "Fongérant"
+doesn't appear to exist under that name, Gérofinance and Régie du Rhône
+turned out to be the same company — none of these three made it in) and
+picked five working, distinctly-real Geneva regies: Naef (already
+seeded), Gérofinance | Régie du Rhône, SPG (Société Privée de Gérance),
+Régimo Genève, and Comptoir Immobilier. Livit's listing page is dominated
+by Zurich/Zug inventory and yielded zero Geneva matches — left seeded but
+empty rather than force-fit.
+
+Two small code changes made this possible: `seed.ts:seedAgencyInMarket`
+(adds an agency to an *existing* market — the original `seedAgency`
+always inserted a fresh market, which would have silently broken
+matching between agencies sharing "Geneva"), and a Geneva-canton-only
+guard added to the Firecrawl extraction prompt (`firecrawl.ts`) — several
+of the new regies list properties across multiple cantons on the same
+page, and the LLM extraction needed to be told explicitly to keep only
+postal codes 1200-1299. Verified address-by-address in dev before
+trusting it (SPG: 11/11 listings tagged "(GE)").
+
+Validated in dev first (62 real listings, 30 auto-matched), then
+redeployed the same code to prod and re-ran the identical seed+crawl
+sequence there. Prod now has 43 real, live Geneva listings across 5
+agencies and responds HTTP 200 — the public-feed gap flagged earlier
+today is closed. No email sent to any agency, dev or prod. Convex
+features: internal mutations, action calling a third-party API
+(`convex/seed.ts`, `convex/firecrawl.ts`).
