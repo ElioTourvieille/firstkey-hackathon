@@ -65,7 +65,7 @@ See the `origin-studio-hackathon-workflow` skill. Summary:
 ## Structure du projet
 
 - `convex/schema.ts` — source de vérité du modèle de données, fidèle à l'architecture décidée.
-- `convex/firecrawl.ts` — `action` en `fetch` REST direct (décision confirmée, voir écart n°5 ci-dessus — ne pas migrer vers `@firecrawl/firecrawl-convex` sans re-décision explicite).
+- `convex/firecrawl.ts` — `action` en `fetch` REST direct (décision confirmée, voir écart n°5 ci-dessus — ne pas migrer vers `@firecrawl/firecrawl-convex` sans re-décision explicite). Le prompt d'extraction filtre sur le canton de Genève (CP 1200-1299) — nécessaire car plusieurs régies (Gérofinance, SPG) publient sur des pages multi-cantons.
 - `convex/listings.ts`, `convex/agencies.ts` — uniquement `internalMutation`/`internalQuery`, sauf `listings.listPublic` (publique, feed public). **Toute nouvelle fonction publique sur `agencies` doit omettre `contactEmail`.**
 - `convex/lib/hash.ts` — dédup par hash d'URL canonique.
 - `convex/lib/matching.ts` — prédicat `isMatch` (prix + pièces, pas de `moveInDate`), partagé entre `convex/matching.ts` (écrit `listings.status`) et `convex/profiles.ts` (lit les matches du profil courant).
@@ -73,7 +73,7 @@ See the `origin-studio-hackathon-workflow` skill. Summary:
 - `convex/openai.ts` — `draftInquiry` (internal) / `draftMyInquiry` (public, scopé identité), `fetch` direct vers `gpt-4o-mini`.
 - `convex/agentmail.ts` — `sendInquiry`, déclenché uniquement par un bouton UI explicite (jamais automatique). Envoi en `fetch` REST direct (contournement de deux bugs du composant officiel `@agentmail/convex` — voir commentaire en tête du fichier); le composant reste utilisé pour la route webhook et la query réactive d'inbox.
 - `convex/profiles.ts` — `myMatches` (authentifiée, recalcule le match plutôt que de faire confiance au `status` grossier).
-- `convex/seed.ts` — dev-only, jamais exécuté sur prod pour l'instant (voir Open Issues : prod n'a aucune donnée).
+- `convex/seed.ts` — dev-only en principe, mais aussi exécuté ponctuellement sur prod (`--prod`) pour peupler le feed public (voir Open Issues #1). `seedAgencyInMarket` est la fonction à utiliser pour ajouter une régie à un marché existant ; `seedAgency` ne doit servir qu'à créer un tout premier marché.
 - `components/AuthGate.tsx` / `components/ConvexClientProvider.tsx` — Clerk confiné en Client Component (export statique).
 - `app/page.tsx` — feed public inconditionnel + zone authentifiée (profil/matches/inbox) gérée par Clerk uniquement pour le chrome de compte.
 - Toujours manquant par rapport au plan : `convex/crons.ts` (pas de re-crawl automatique, tout est déclenché manuellement), `app/profile/`, `app/inbox/` (dédiées — le flow actuel vit dans `app/page.tsx`).
@@ -95,7 +95,7 @@ See the `origin-studio-hackathon-workflow` skill. Summary:
 
 ## Open Issues — truly unresolved (to be distinguished from “just not coded yet”)
 
-1. **Prod has no data.** Next real task: seed prod with the 5-8 target agencies (see decision below) and run Firecrawl against them for real. Per the mandatory workflow, this needs explicit human sign-off before it happens (first real large-scale crawl against real agency sites) — do not just run it.
+1. **✅ Prod has no data — fixed 2026-09-09.** Prod now has 5 real Geneva agencies (Naef, Gérofinance | Régie du Rhône, SPG, Régimo Genève, Comptoir Immobilier) and 43 real listings, same as dev. `de Rham` (Vaud, not Geneva), `Fongérant` (couldn't find a company by that name) and `Livit` (its listing page is Zurich/Zug-dominated, yielded 0 Geneva matches) were tried/considered and dropped — see `hackathon.md` `cb711bf` for the research. To add another agency: `convex/seed.ts:seedAgencyInMarket` (reuses the existing Geneva `marketId` — never `seedAgency`, which always creates a new market and would silently break matching against agencies already in "Geneva").
 2. **No automatic re-crawl.** `convex/crons.ts` still doesn't exist; every crawl is a manual `npx convex run firecrawl:...` call. Not blocking for the demo, but worth flagging if the demo needs listings to feel "live" without a manual step.
 3. **Inbound replies unhandled.** `listings.status = "replied"` and the "chat thread that updates in real time" from the product description have no implementation — `agentmail`'s webhook route exists (`convex/http.ts`) but nothing has been verified end-to-end for an agency's reply flowing back into the UI.
 
