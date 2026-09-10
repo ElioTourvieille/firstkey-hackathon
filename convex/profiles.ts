@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalQuery, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import { isMatch } from "./lib/matching";
 import schema from "./schema";
 
@@ -88,5 +88,62 @@ export const myMatches = query({
         };
       }),
     );
+  },
+});
+
+// Public, identity-scoped: the signed-in tenant's own profile, or null if
+// they haven't created one yet. Safe to return the full doc — unlike
+// agencies.contactEmail this is the caller's own data, nothing cross-user.
+export const myProfile = query({
+  args: {},
+  returns: v.union(schema.doc("profiles"), v.null()),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const [profile] = await ctx.db
+      .query("profiles")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .take(1);
+    return profile ?? null;
+  },
+});
+
+// Public, identity-scoped: create or update the signed-in tenant's own
+// profile (by_user index — at most one per user). `marketId` is resolved
+// server-side rather than picked in the UI: only one market ("Geneva")
+// exists today, so there's nothing for a market picker to do yet.
+export const upsertMine = mutation({
+  args: {
+    budgetMax: v.number(),
+    roomsMin: v.number(),
+    surfaceMin: v.optional(v.number()),
+    quartiers: v.optional(v.array(v.string())),
+    moveInDate: v.optional(v.string()),
+    pitch: v.string(),
+  },
+  returns: v.id("profiles"),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not signed in");
+
+    const [existing] = await ctx.db
+      .query("profiles")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .take(1);
+
+    if (existing) {
+      await ctx.db.patch("profiles", existing._id, args);
+      return existing._id;
+    }
+
+    const [market] = await ctx.db.query("markets").take(1);
+    if (!market) throw new Error("No market configured — run seed:seedAgency first");
+
+    return await ctx.db.insert("profiles", {
+      userId: identity.subject,
+      marketId: market._id,
+      ...args,
+    });
   },
 });

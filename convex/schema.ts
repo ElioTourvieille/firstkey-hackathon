@@ -43,6 +43,8 @@ export default defineSchema({
     marketId: v.id("markets"),
     budgetMax: v.number(),
     roomsMin: v.number(),
+    surfaceMin: v.optional(v.number()),
+    quartiers: v.optional(v.array(v.string())), // codes postaux genevois, ex. ["1205","1206"]
     moveInDate: v.optional(v.string()),
     pitch: v.string(), // texte libre utilisé pour personnaliser l'email
   }).index("by_user", ["userId"]),
