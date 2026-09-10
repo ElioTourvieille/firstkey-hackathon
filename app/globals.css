@@ -1,26 +1,29 @@
 @import "tailwindcss";
 
+/* Palette from design/design-system.md — Swiss Style, light-only (no
+   maquette exists for a dark variant, so we don't invent one). */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f7f4; /* fond : blanc cassé froid */
+  --foreground: #17171a; /* encre : jamais de noir pur */
+  --accent: #d6362b; /* rouge fonctionnel : signaux live/urgents uniquement */
+  --status-new: #2f9e44; /* vert sauge : nouveau match */
+  --status-pending: #c88a1a; /* ambre : en attente de réponse */
+  --border: #e4e4e0; /* neutres/bordures */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-status-new: var(--status-new);
+  --color-status-pending: var(--status-pending);
+  --color-border: var(--border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }

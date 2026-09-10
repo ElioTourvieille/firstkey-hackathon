@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** gpt-4o-mini (direct fetch, not the Convex AI Gateway)
 - **Started:** 2026-08-26T11:58:52Z
-- **Last updated:** 2026-09-09T11:17:07Z
+- **Last updated:** 2026-09-10T09:05:11Z
 
 ## Log
 
@@ -180,3 +180,21 @@ agencies and responds HTTP 200 — the public-feed gap flagged earlier
 today is closed. No email sent to any agency, dev or prod. Convex
 features: internal mutations, action calling a third-party API
 (`convex/seed.ts`, `convex/firecrawl.ts`).
+
+### 2026-09-10 - working tree
+Added a design reference for the remaining UI work: `design/design-system.md`
+(Swiss-Style direction, palette, typography, layout rules) plus four
+validated mockups — public feed, profile, matches ("myCorrespondence"), and
+the agency messenger/inbox. The design system's central rule, added after an
+earlier mockup pass invented fake certifications (USPI/ASLOCA/LDTR) and a
+solvency score: no badge, percentage, or count may render without real
+Convex data behind it — an unimplemented value is omitted, never simulated.
+`prompts/feed-public.md` was updated to point the (already-shipped) public
+feed at `design/publicFeed.png` as its visual reference, carrying the same
+no-fabricated-data constraint. `AGENTS.md` was translated to French and its
+"Discrepancies" section rewritten to describe the project's state as of the
+`a157e9d` crawler commit — this is now stale relative to the current,
+English `CLAUDE.md`, which reflects the resolved state as of 2026-09-09.
+Also widened `tsconfig.json`'s include globs to cover `dist/types` and
+`dist/dev/types` (static-export typecheck). No Convex backend code changed;
+nothing deployed.

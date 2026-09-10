@@ -1,66 +1,79 @@
-# Agents.md — firstkey (Convex All Gas Hackathon)
+you# Agents.md — firstkey (Convex All Gas Hackathon)
 
-> This file is written **for the agent**, not for public documentation. It **supplements**—and never replaces—the auto-generated block `<!-- convex-ai-start -->...<!-- convex-ai-end -->` already present at the top of `AGENTS.md`/`CLAUDE.md` in this repo, managed by `npx convex ai-files install`. Do not delete or duplicate it here: paste the content below **after** this block.
+> Ce fichier est écrit **pour l'agent**, pas pour la doc publique. Il **complète** — et ne remplace jamais — le bloc auto-généré `<!-- convex-ai-start -->...<!-- convex-ai-end -->` déjà présent en tête de `AGENTS.md`/`CLAUDE.md` dans ce repo, géré par `npx convex ai-files install`. Ne pas le supprimer ni le dupliquer ici : colle le contenu ci-dessous **après** ce bloc.
 >
-> Last sync: actual code from the repo (commit `a157e9d`) + strategy conversation “Analysis and Strategy for a Winning Project” (analysis of hackathon rules + architecture decisions). If the two diverge, this file explicitly flags the discrepancy rather than silently overriding it.
+> Dernière synchronisation : code réel du repo (commit `a157e9d`) + conversation de stratégie "Analyse et stratégie pour un projet gagnant" (analyse des règles du hackathon + décisions d'architecture). Si les deux divergent, ce fichier signale la divergence explicitement plutôt que de trancher silencieusement.
 
-## Hackathon Context — Rules and Judging Criteria
+## Contexte hackathon — règles et critères de jugement
 
-- **Event**: Convex All Gas Hackathon. Timeframe: August 25 → September 22, 12:00 PM PT. Solo, part-time.
-- **Required for submission**: new app started after 08/25 ✅, Convex backend ✅, public GitHub repo ✅, deployed on `convex.site` (no localhost), demo video < 3 min, X/LinkedIn post tagging **@convex @OpenAI @firecrawl @agentmail**, submission on vibeapps.dev.
-- **Judging criteria, in order of importance**:
-  1. **Real-world use** — “a real person would use this this week.” A consumer or SMB product in a real industry, not a developer tool. *“Copycats and developer-only tools score low.”*
-  2. **Actual Convex depth** (queries/mutations/live updates/auth/components) — *"A thin frontend on a hosted page does not count."*
-  3. **Sponsors must actually do real work within the product** — Firecrawl, OpenAI, and AgentMail must each perform real work **at runtime**, not just be mentioned or used for coding (Codex does not count for OpenAI).
-  4. Functional public URL, short video demo, social traction.
-- **Non-negotiable judging requirement currently violated by the code**: *the listing feed must be publicly visible without requiring a login.* A judge opening the URL `convex.site` must see the product in action immediately — Clerk should only protect the personal profile and inbox, never the main feed.
+- **Event** : Convex All Gas Hackathon. Fenêtre : 25 août → 22 septembre 12h PT. Solo, mi-temps.
+- **Obligatoire pour la soumission** : nouvelle app démarrée après le 25/08 ✅, backend Convex ✅, repo GitHub public ✅, déployée sur `convex.site` (pas de localhost), vidéo démo < 3 min, post X/LinkedIn taguant **@convex @OpenAI @firecrawl @agentmail**, soumission sur vibeapps.dev.
+- **Critères de jugement, dans l'ordre où ils pèsent le plus** :
+  1. **Usage réel** — "a real person would use this this week". Un produit grand public/PME dans un vrai secteur, pas un dev tool. *"Copycats and developer-only tools score low."*
+  2. **Profondeur Convex réelle** (queries/mutations/live updates/auth/components) — *"a thin frontend on a hosted page does not count."*
+  3. **Les sponsors doivent réellement travailler dans le produit** — Firecrawl, OpenAI et AgentMail doivent chacun faire un vrai travail **au runtime**, pas juste être mentionnés ou avoir servi à coder (Codex ne compte pas pour OpenAI).
+  4. URL publique fonctionnelle, démo vidéo courte, traction sociale.
+- **Contrainte de jugement non négociable et actuellement violée par le code** : *le feed d'annonces doit être visible publiquement, sans connexion.* Un juge qui ouvre l'URL `convex.site` doit voir le produit vivre immédiatement — Clerk ne doit protéger que le profil personnel et l'inbox, jamais le feed principal.
 
-## Product
+## Produit
 
-**Rental Copilot** (working title): a co-pilot for finding housing in Geneva. It detects new listings posted directly on real estate agencies’ websites (Naef, de Rham, Fongérant, Gérofinance, SPG-Intercity, Livit, Régie du Rhône, etc.) — **deliberately excluding major portals** (Homegate, ImmoScout24, Comparis).
+**Rental Copilot** (nom provisoire) : un copilote de recherche de logement à Genève. Il détecte les nouvelles annonces publiées directement sur les sites des régies (Naef, de Rham, Fongérant, Gérofinance, SPG-Intercity, Livit, Régie du Rhône, etc.) — **volontairement pas les gros portails** (Homegate, ImmoScout24, Comparis).
 
-**Why this choice of source is a product decision, not a technical shortcut**: real estate agencies often post their listings on their own websites before they appear on aggregator portals. Targeting real estate agency websites (a) avoids the strict terms of service and robust anti-bot measures of major portals—significantly lower legal/technical risk for a part-time solo project—and (b) provides a defensible product angle to present to the jury: *“We’re looking at a source that home seekers never check individually, so we’re faster.”* Never expand the crawl to a major aggregator portal without re-evaluating this decision.
+**Pourquoi ce choix de source est une décision produit, pas un raccourci technique** : les régies publient souvent leurs biens sur leur propre site avant que ça remonte sur les portails agrégateurs. Cibler les sites de régies (a) évite les CGU strictes et l'anti-bot costaud des gros portails — risque juridique/technique bien plus faible pour un solo en mi-temps — et (b) donne un angle produit défendable devant le jury : *"on regarde une source que les chercheurs de logement ne consultent jamais un par un, donc on est plus rapide."* Ne jamais élargir le crawl vers un gros portail agrégateur sans revalider ce choix.
 
-The product then matches these listings against a search profile (budget, number of rooms, market) and sends a personalized application to the real estate agency on the user’s behalf, with a chat thread that updates in real time when the agency responds.
+Le produit matche ensuite ces annonces contre un profil de recherche (budget, pièces, marché) et envoie une candidature personnalisée à la régie en son nom, avec un fil de conversation qui se met à jour en direct quand la régie répond.
 
-- **Who creates the data**: the Firecrawl crawler (currently triggered manually).
-- **Who consumes it**: tenants (via their `profile`) who receive matches, and property management companies that receive an automated outreach.
-- **Source of truth**: Convex only (`convex/schema.ts`) .
-- **Public vs. authenticated**: The listing feed must remain public (see judgment constraint above); only `/profile` and the inbox require Clerk.
-- **Strictly server-side**: The Firecrawl call (API key), the OpenAI call (API key), and anything related to `agencies.contactEmail`.
+- **Qui crée la donnée** : le crawler Firecrawl (déclenché manuellement pour l'instant).
+- **Qui la consomme** : les locataires (via leur `profile`) qui reçoivent des matches, et les régies qui reçoivent une prise de contact automatisée.
+- **Source de vérité** : Convex uniquement (`convex/schema.ts`).
+- **Public vs authentifié** : le feed d'annonces doit rester public (voir contrainte de jugement ci-dessus) ; seuls `/profile` et l'inbox nécessitent Clerk.
+- **Strictement serveur** : l'appel Firecrawl (clé API), l'appel OpenAI (clé API), tout ce qui touche `agencies.contactEmail`.
 
-## Discrepancies between strategy and current code — to be fixed as a priority
+## Écarts stratégie ↔ code actuel — à corriger en priorité
 
-The diagram accurately reflects the agreed-upon architecture. The rest is significantly behind schedule (Week 1 is almost over, Week 2 hasn’t started, even though we’re roughly halfway through the 3-week timeline). In order of impact on the score:
+Le schéma est fidèle à l'architecture décidée. Le reste a un retard réel sur le plan (Semaine 1 quasi terminée, Semaine 2 pas commencée, alors qu'on est à peu près à mi-parcours du calendrier des 3 semaines). Par ordre d'impact sur le score :
 
-1. **🔴 The feed is not public.** `app/page.tsx` forces a login (`Unauthenticated` → only sign-in/sign-up buttons; nothing visible without an account). This is a direct violation of the most explicit evaluation rule we’ve identified. Must be fixed before any other UI features.
-2. **🔴 OpenAI is not integrated.** No dependencies, no calls—`convex/openai.ts` (application text generation via `gpt-4o-mini`, direct `fetch` call, not the Convex AI Gateway reserved for paid plans) does not yet exist. Without this, one of the three required sponsors is at zero.
-3. **🔴 AgentMail is not integrated.** The schema anticipates `inquiries.agentmailThreadId`, but nothing sends or receives emails. Second required sponsor is at zero.
-4. **🟠 Matching does not exist.** `listings.status` never changes beyond `"new"`. This is the core of the value proposition (“we’ll find you a place that matches your profile”) and is currently missing from the demo.
-5. **🟡 The Firecrawl crawler uses direct REST `fetch`, not the official `@firecrawl/firecrawl-convex` component** identified in the strategy as the preferred choice for Convex depth (sustainable crawls, reactive progression written directly to the database). This is still a valid use of Firecrawl (the sponsor isn’t at zero), but it likely scores lower on the “Convex depth/components” criterion than expected. **Decision pending**: stick with the current implementation (already tested, works) or migrate to the official component before the deadline—don’t decide this alone; the risk of a failed rewrite with two weeks to go is real.
-6. **🟡 Deployment status to be reconfirmed.** A production deployment (`outstanding-malamute-184.convex.site`) was successful early in the project (just the Clerk shell). The `hackathon.md` file in the repo shows “not deployed” after the crawler was added—either it was never pushed after that commit, or the log is simply out of date. Check this first before building further on it: a broken redeployment discovered at the deadline is the worst-case scenario for this entire plan.
+1. **🔴 Le feed n'est pas public.** `app/page.tsx` force la connexion (`Unauthenticated` → boutons sign-in/sign-up uniquement, rien à voir sans compte). C'est une violation directe de la règle de jugement la plus explicite qu'on ait identifiée. À corriger avant toute autre feature UI.
+2. **🔴 OpenAI n'est pas intégré.** Aucune dépendance, aucun appel — `convex/openai.ts` (génération du texte de candidature via `gpt-4o-mini`, appel direct `fetch`, pas le Convex AI Gateway réservé aux plans payants) n'existe pas encore. Sans ça, un des 3 sponsors obligatoires est à zéro.
+3. **🔴 AgentMail n'est pas intégré.** Le schéma anticipe `inquiries.agentmailThreadId` mais rien n'envoie ni ne reçoit d'email. Deuxième sponsor obligatoire à zéro.
+4. **🟠 Le matching n'existe pas.** `listings.status` ne bouge jamais au-delà de `"new"`. C'est le cœur de la proposition de valeur ("on te trouve un logement qui correspond à ton profil") et il est actuellement absent de la démo.
+5. **🟡 Le crawler Firecrawl utilise `fetch` REST direct, pas le composant officiel `@firecrawl/firecrawl-convex`** identifié dans la stratégie comme le choix à privilégier pour la profondeur Convex (crawls durables, progression réactive écrite directement en base). Ça reste un vrai usage de Firecrawl (le sponsor n'est pas à zéro), mais ça score probablement moins bien sur le critère "profondeur Convex/components" que prévu. **Point à trancher** : rester sur l'implémentation actuelle (déjà testée, fonctionne) ou migrer vers le composant officiel avant la deadline — ne pas décider ça seul, le risque d'une réécriture ratée à 2 semaines de la fin est réel.
+6. **🟡 Statut de déploiement à reconfirmer.** Un déploiement prod (`outstanding-malamute-184.convex.site`) a réussi tôt dans le projet (juste le shell Clerk). Le `hackathon.md` du repo indique "not deployed" après l'ajout du crawler — soit ça n'a jamais été repoussé après ce commit, soit le log n'est juste pas à jour. À vérifier en premier avant de construire davantage dessus : un redéploiement cassé découvert à la deadline est le pire scénario de tout ce plan.
 
-## Mandatory Workflow (Hackathon Edition)
+## Méthode de travail obligatoire (édition hackathon)
 
-See the `origin-studio-hackathon-workflow` skill. Summary:
+Voir le skill `origin-studio-hackathon-workflow`. Résumé :
 
-1. Read this file + the relevant skills before touching the code.
-2. Inspect the actual code, not just `hackathon.md` (we’ve already been caught out once—see discrepancy #6).
-3. If the scope involves an issue that’s still open (see section below), ask for clarification before proceeding.
-4. For any non-trivial feature, create a short prompt in `/prompts/[feature].md` and have it approved before execution.
-5. Human validation is non-negotiable before: the first actual email sent to a real advertising network, the first real large-scale crawl (Firecrawl cost), and any schema change affecting existing data.
-6. After implementation: `npm run typecheck`, `npm run lint`, `npm run build`.
-7. One branch per feature, PR before merge—provides a defensible history to present to the review panel and a fallback point if a feature breaks the build at the last minute.
+1. Lire ce fichier + les skills pertinents avant de toucher au code.
+2. Inspecter le code réellement présent, pas seulement `hackathon.md` (déjà pris en défaut une fois — voir écart n°6).
+3. Si le périmètre touche un point encore ouvert (section ci-dessous), poser la question avant de construire.
+4. Pour toute feature non triviale, prompt court dans `/prompts/[feature].md`, validé avant exécution.
+5. Validation humaine non négociable avant : premier envoi réel d'email à une vraie régie, premier vrai crawl à grande échelle (coût Firecrawl), tout changement de schéma touchant des données existantes.
+6. Après implémentation : `npm run typecheck`, `npm run lint`, `npm run build`.
+7. Une branche par feature, PR avant merge — donne un historique défendable devant le jury et un point de retour si une feature casse le build en fin de course.
 
-## Skills to load
+## Skills à charger
 
-| Skill | Type | Load when... |
+| Skill | Type | Charger quand... |
 |---|---|---|
-| `convex`, `convex-quickstart`, `convex-crons`, `convex-env`, `convex-auth`, `convex-setup-auth`, `convex-authz`, `convex-seed`, `convex-test`, `convex-optimize`, `convex-reviewer`, `convex-deploy-guard`, … (complete list: `skills-lock.json`) | Official `get-convex/agent-skills` (already installed) | Any Convex syntax/API |
-| `firecrawl-crawler-firstkey` | Project | Modify crawling, add a control panel, address point 5 above |
-| `clerk-static-export-firstkey` | Project | Auth, new page/route, make the feed public (point 1) |
-| `matching-outreach-firstkey` | Project | Build matching (OpenAI) + outreach (AgentMail) — workflow now decided, just not coded yet |
-| `origin-studio-hackathon-workflow` | Personal, reusable | Still in the background |
+| `convex`, `convex-quickstart`, `convex-crons`, `convex-env`, `convex-auth`, `convex-setup-auth`, `convex-authz`, `convex-seed`, `convex-test`, `convex-optimize`, `convex-reviewer`, `convex-deploy-guard`, … (liste complète : `skills-lock.json`) | Officiel `get-convex/agent-skills` (déjà installés) | Toute syntaxe/API Convex |
+| `firecrawl-crawler-firstkey` | Projet | Modifier le crawling, ajouter une régie, trancher le point 5 ci-dessus |
+| `clerk-static-export-firstkey` | Projet | Auth, nouvelle page/route, rendre le feed public (point 1) |
+| `matching-outreach-firstkey` | Projet | Construire matching (OpenAI) + outreach (AgentMail) — flux maintenant décidé, juste pas codé |
+| `origin-studio-hackathon-workflow` | Perso, réutilisable | Toujours en toile de fond |
+
+## Design
+
+Les maquettes validées vivent dans `design/` à la racine du repo — référence visuelle **obligatoire** pour toute feature UI, à consulter avant de coder un écran. Voir `design/design-system.md` pour les tokens (couleurs, typo, layout) et la règle non négociable : **aucun chiffre ou badge affiché sans donnée réelle derrière** (pas de score de match inventé, pas de certification tierce fictive, pas de nombre de régies aspirationnel). Cette règle a été ajoutée après une première génération de maquette qui inventait des certifications USPI/ASLOCA/LDTR et des scores de solvabilité — ne jamais la réintroduire, même comme "juste un exemple visuel".
+
+| Fichier | Écran |
+|---|---|
+| `design/publicFeed.png` | Flux public — priorité de construction n°1 |
+| `design/profile.png` | Mon profil de candidat |
+| `design/myCorrespondence.png` | Mes correspondances — nécessite `convex/matching.ts` avant de construire l'UI |
+| `design/messenger.png` | Messagerie régies — nécessite AgentMail branché avant de construire l'UI |
+
+Pas de maquette mobile exportée à ce jour — priorité basse, à générer seulement si le temps le permet une fois les 4 écrans desktop construits.
 
 ## Structure du projet
 
@@ -73,32 +86,32 @@ See the `origin-studio-hackathon-workflow` skill. Summary:
 - `app/page.tsx` — **à corriger en priorité** : actuellement 100% gated, doit devenir feed public + zone authentifiée pour le profil/inbox.
 - Manquants par rapport au plan : `convex/crons.ts`, `convex/matching.ts`, `convex/openai.ts`, `convex/agentmail.ts`, `convex/profiles.ts`, `app/profile/`, `app/inbox/`, `convex/http.ts` (réservé via `httpPrefix: "/api"` dans `convex.config.ts`, utile pour un futur webhook AgentMail).
 
-## Tech Stack
+## Stack technique
 
-- Next.js 16 with **static export** (`output: "export"`, `distDir: "dist"`) — served by `@convex-dev/static-hosting`, no Next server.
+- Next.js 16 en **export statique** (`output: "export"`, `distDir: "dist"`) — servi par `@convex-dev/static-hosting`, aucun serveur Next.
 - Convex 1.44.
-- Clerk via `@clerk/clerk-react` (not `@clerk/nextjs`).
-- Firecrawl — direct REST `fetch` (see discrepancy #5).
-- **OpenAI — direct `fetch` call to the API (`gpt-4o-mini`), not the Convex AI Gateway** (reserved for paid plans). Decided but not implemented.
-- **AgentMail — official Convex component** planned (threads/labels/messages synchronized reactively). Decided but not implemented.
-- pnpm. Deployment: `npm run deploy` → `npx @convex-dev/static-hosting deploy`.
+- Clerk via `@clerk/clerk-react` (pas `@clerk/nextjs`).
+- Firecrawl — `fetch` REST direct (voir écart n°5).
+- **OpenAI — appel direct `fetch` à l'API (`gpt-4o-mini`), pas le Convex AI Gateway** (réservé aux plans payants). Décidé mais pas codé.
+- **AgentMail — composant Convex officiel** prévu (threads/labels/messages synchronisés en réactif). Décidé mais pas codé.
+- pnpm. Déploiement : `npm run deploy` → `npx @convex-dev/static-hosting deploy`.
 
-## Data Model (current state as of commit `a157e9d`)
+## Modèle de données (état réel au commit `a157e9d`)
 
-- `markets`, `agencies` (`contactEmail` is sensitive, never public), `listings` (`status: new|matched|contacted|replied`, only `"new"` is reached today, deduplication via canonical URL hash — see Firecrawl skill), `profiles` (schema ready, nothing reads/writes it), `inquiries` (schema ready, `agentmailThreadId` anticipates AgentMail, nothing implemented).
+- `markets`, `agencies` (`contactEmail` sensible, jamais public), `listings` (`status: new|matched|contacted|replied`, seul `"new"` est atteint aujourd'hui, dédup par hash d'URL canonique — voir skill firecrawl), `profiles` (schéma prêt, rien ne le lit/l'écrit), `inquiries` (schéma prêt, `agentmailThreadId` anticipe AgentMail, rien d'implémenté).
 
-## Open Issues — truly unresolved (to be distinguished from “just not coded yet”)
+## Points ouverts — vraiment non tranchés (à distinguer de "juste pas codé")
 
-1. **Point 5 above**: Keep direct `fetch` for Firecrawl or migrate to `@firecrawl/firecrawl-convex`?
-2. **Exact matching formula**: the architecture states “compare to active listings in the same market”—the most likely interpretation is `priceChf <= budgetMax` and `rooms >= roomsMin`, but this has never been explicitly confirmed, and there’s no indication whether `moveInDate` should also be a filter. To be confirmed before coding `convex/matching.ts`.
-3. **Human review before sending**: Does a match automatically trigger the sending of an AgentMail, or is manual validation still required, at least during the hackathon? Strong recommendation: manual validation until we’ve tested the email template on at least one real agency.
-4. **Demo volume**: only one market/agency seeded so far; the plan was to reach ~30 real estate agencies by week 3—what volume should we aim for given the time remaining?
+1. **Point 5 ci-dessus** : garder `fetch` direct pour Firecrawl ou migrer vers `@firecrawl/firecrawl-convex` ?
+2. **Formule exacte du matching** : l'architecture dit "compare aux profils actifs du même marché" — le sens le plus probable est `priceChf <= budgetMax` et `rooms >= roomsMin`, mais ça n'a jamais été confirmé littéralement, et rien ne dit si `moveInDate` doit filtrer aussi. À confirmer avant de coder `convex/matching.ts`.
+3. **Relecture humaine avant envoi** : un match déclenche-t-il l'envoi AgentMail automatiquement, ou une validation manuelle reste-t-elle nécessaire au moins pendant le hackathon ? Recommandation forte : validation manuelle tant qu'on n'a pas testé le gabarit d'email sur au moins une vraie régie.
+4. **Volume de démo** : un seul market/agency seedé à ce jour ; le plan visait ~30 régies en semaine 3 — à quel volume s'arrêter compte tenu du temps restant ?
 
-## What the agent must never do
+## Ce que l'agent ne doit jamais faire
 
-- Make `contactEmail` accessible via a public query.
-- Build a feature that re-caches the feed behind authentication—this is the opposite of the priority fix.
-- Crawl a large aggregator portal (Homegate, ImmoScout24, Comparis) without explicitly revalidating this choice—this is a deliberate product decision, not an oversight.
-- Send a real email via AgentMail without explicit confirmation, even in a test.
-- Reintroduce `@clerk/nextjs`, Server Actions, or Next middleware.
-- Use Codex or a code agent as a substitute for a real OpenAI runtime call—this does not count toward the sponsor evaluation criteria.
+- Rendre `contactEmail` accessible depuis une query publique.
+- Construire une feature qui re-cache le feed derrière l'auth — c'est l'inverse du correctif prioritaire.
+- Crawler un gros portail agrégateur (Homegate, ImmoScout24, Comparis) sans revalider explicitement ce choix — c'est une décision produit assumée, pas un oubli.
+- Envoyer un email réel via AgentMail sans confirmation explicite, même en test.
+- Réintroduire `@clerk/nextjs`, des Server Actions, ou du middleware Next.
+- Utiliser Codex/un agent de code comme substitut à un vrai appel OpenAI runtime — ça ne compte pas pour le critère de jugement sponsor.
