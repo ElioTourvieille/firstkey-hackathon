@@ -2,32 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Authenticated, Unauthenticated, useAction, useQuery } from "convex/react";
-import { SignUpButton, SignInButton, UserButton } from "@clerk/clerk-react";
+import { SignUpButton, SignInButton } from "@clerk/clerk-react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-
-// Public postal-code → district name lookup for Geneva canton (1200-1299).
-// Real, public geography — not product data — used only to label the
-// quartier filter; the filter itself only ever offers codes that actually
-// appear in loaded listing addresses (see `quartierCodes` in `Home`).
-const GENEVA_DISTRICTS: Record<string, string> = {
-  "1201": "Pâquis",
-  "1202": "Servette",
-  "1203": "Sécheron",
-  "1204": "Vieille-Ville",
-  "1205": "Plainpalais",
-  "1206": "Champel",
-  "1207": "Eaux-Vives",
-  "1208": "Florissant",
-  "1209": "Petit-Saconnex",
-  "1213": "Onex",
-  "1218": "Grand-Saconnex",
-  "1219": "Le Lignon",
-  "1227": "Carouge",
-  "1228": "Plan-les-Ouates",
-  "1231": "Conches",
-  "1290": "Versoix",
-};
+import { GENEVA_DISTRICTS } from "@/lib/geneva-districts";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import ToggleChip from "@/components/ToggleChip";
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   new: { label: "Nouveau", className: "text-status-new" },
@@ -44,11 +25,20 @@ export default function Home() {
 
   const [roomsMin, setRoomsMin] = useState<number | null>(null);
   const [budgetMax, setBudgetMax] = useState<number | null>(null);
+  const [surfaceMin, setSurfaceMin] = useState<number | null>(null);
   const [quartiers, setQuartiers] = useState<Set<string>>(new Set());
 
   const maxPrice = useMemo(() => {
     if (!listings || listings.length === 0) return null;
     return Math.max(...listings.map((l) => l.priceChf));
+  }, [listings]);
+
+  // Only listings with a known surfaceM2 count toward the slider's range —
+  // most listings have one, but Firecrawl doesn't always extract it.
+  const maxSurface = useMemo(() => {
+    if (!listings) return null;
+    const known = listings.map((l) => l.surfaceM2).filter((s): s is number => s !== undefined);
+    return known.length > 0 ? Math.max(...known) : null;
   }, [listings]);
 
   const quartierCodes = useMemo(() => {
@@ -66,13 +56,20 @@ export default function Home() {
     return listings.filter((listing) => {
       if (roomsMin !== null && listing.rooms < roomsMin) return false;
       if (budgetMax !== null && listing.priceChf > budgetMax) return false;
+      // Unlike the (permissive) matching predicate in convex/lib/matching.ts,
+      // this is a filter the visitor explicitly set and can reset instantly —
+      // an unverifiable listing (no surfaceM2 from Firecrawl) is hidden
+      // rather than shown as if it satisfied a minimum we can't confirm.
+      if (surfaceMin !== null && (listing.surfaceM2 === undefined || listing.surfaceM2 < surfaceMin)) {
+        return false;
+      }
       if (quartiers.size > 0) {
         const match = listing.address?.match(/\b(12\d{2})\b/);
         if (!match || !quartiers.has(match[1])) return false;
       }
       return true;
     });
-  }, [listings, roomsMin, budgetMax, quartiers]);
+  }, [listings, roomsMin, budgetMax, surfaceMin, quartiers]);
 
   function toggleQuartier(code: string) {
     setQuartiers((prev) => {
@@ -86,12 +83,13 @@ export default function Home() {
   function resetFilters() {
     setRoomsMin(null);
     setBudgetMax(null);
+    setSurfaceMin(null);
     setQuartiers(new Set());
   }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Header />
+      <Header active="Flux public" />
       <ActivityTicker listings={listings} agencyCount={agencies?.length} />
       <main className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 items-start">
         <div className="flex flex-col gap-6">
@@ -112,6 +110,9 @@ export default function Home() {
             maxPrice={maxPrice}
             budgetMax={budgetMax}
             setBudgetMax={setBudgetMax}
+            maxSurface={maxSurface}
+            surfaceMin={surfaceMin}
+            setSurfaceMin={setSurfaceMin}
             quartierCodes={quartierCodes}
             quartiers={quartiers}
             toggleQuartier={toggleQuartier}
@@ -135,59 +136,6 @@ export default function Home() {
 
       <Footer agencies={agencies} />
     </div>
-  );
-}
-
-const NAV_TABS = [
-  { label: "Flux public", active: true },
-  { label: "Mes correspondances", active: false },
-  { label: "Messagerie régies", active: false },
-  { label: "Mon profil", active: false },
-];
-
-function Header() {
-  return (
-    <header className="sticky top-0 z-10 bg-background border-b border-border">
-      <div className="max-w-6xl mx-auto px-6 py-3 flex flex-row justify-between items-center gap-6">
-        <div className="flex flex-row items-center gap-8">
-          <span className="font-semibold">firstkey</span>
-          <nav className="flex flex-row gap-5 text-sm">
-            {NAV_TABS.map((tab) =>
-              tab.active ? (
-                <span key={tab.label} className="font-medium border-b-2 border-foreground pb-0.5">
-                  {tab.label}
-                </span>
-              ) : (
-                <span
-                  key={tab.label}
-                  className="text-foreground/30 cursor-not-allowed"
-                  title="Bientôt disponible"
-                >
-                  {tab.label}
-                </span>
-              ),
-            )}
-          </nav>
-        </div>
-        <Authenticated>
-          <UserButton />
-        </Authenticated>
-        <Unauthenticated>
-          <div className="flex flex-row gap-2">
-            <SignInButton mode="modal">
-              <button className="border border-border px-3 py-1.5 rounded-sm text-sm hover:border-foreground transition-colors">
-                Se connecter
-              </button>
-            </SignInButton>
-            <SignUpButton mode="modal">
-              <button className="bg-foreground text-background px-3 py-1.5 rounded-sm text-sm">
-                Créer mon profil
-              </button>
-            </SignUpButton>
-          </div>
-        </Unauthenticated>
-      </div>
-    </header>
   );
 }
 
@@ -255,6 +203,9 @@ function FiltersBar({
   maxPrice,
   budgetMax,
   setBudgetMax,
+  maxSurface,
+  surfaceMin,
+  setSurfaceMin,
   quartierCodes,
   quartiers,
   toggleQuartier,
@@ -266,13 +217,17 @@ function FiltersBar({
   maxPrice: number | null;
   budgetMax: number | null;
   setBudgetMax: (v: number | null) => void;
+  maxSurface: number | null;
+  surfaceMin: number | null;
+  setSurfaceMin: (v: number | null) => void;
   quartierCodes: string[];
   quartiers: Set<string>;
   toggleQuartier: (code: string) => void;
   onReset: () => void;
   resultCount: number | undefined;
 }) {
-  const hasActiveFilters = roomsMin !== null || budgetMax !== null || quartiers.size > 0;
+  const hasActiveFilters =
+    roomsMin !== null || budgetMax !== null || surfaceMin !== null || quartiers.size > 0;
 
   return (
     <div className="border border-border rounded-sm p-4 flex flex-col gap-4">
@@ -290,13 +245,13 @@ function FiltersBar({
       <div className="flex flex-col gap-1.5">
         <p className="text-xs text-foreground/60">Pièces minimum</p>
         <div className="flex flex-row flex-wrap gap-1.5">
-          <FilterButton active={roomsMin === null} onClick={() => setRoomsMin(null)}>
+          <ToggleChip active={roomsMin === null} onClick={() => setRoomsMin(null)}>
             Toutes
-          </FilterButton>
+          </ToggleChip>
           {ROOM_FILTERS.map((n) => (
-            <FilterButton key={n} active={roomsMin === n} onClick={() => setRoomsMin(n)}>
+            <ToggleChip key={n} active={roomsMin === n} onClick={() => setRoomsMin(n)}>
               {n}+
-            </FilterButton>
+            </ToggleChip>
           ))}
         </div>
       </div>
@@ -324,46 +279,44 @@ function FiltersBar({
         </div>
       )}
 
+      {maxSurface !== null && (
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs text-foreground/60 flex justify-between">
+            <span>Surface minimale</span>
+            <span className="font-mono">{surfaceMin ?? 0} m²</span>
+          </p>
+          <input
+            type="range"
+            min={0}
+            max={maxSurface}
+            step={5}
+            value={surfaceMin ?? 0}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setSurfaceMin(v <= 0 ? null : v);
+            }}
+            className="w-full accent-foreground"
+          />
+        </div>
+      )}
+
       {quartierCodes.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <p className="text-xs text-foreground/60">Quartiers (Genève)</p>
           <div className="flex flex-row flex-wrap gap-1.5">
             {quartierCodes.map((code) => (
-              <FilterButton
+              <ToggleChip
                 key={code}
                 active={quartiers.has(code)}
                 onClick={() => toggleQuartier(code)}
               >
                 {GENEVA_DISTRICTS[code] ?? code} <span className="opacity-50">({code})</span>
-              </FilterButton>
+              </ToggleChip>
             ))}
           </div>
         </div>
       )}
     </div>
-  );
-}
-
-function FilterButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-        active
-          ? "bg-foreground text-background border-foreground"
-          : "border-border text-foreground/70 hover:border-foreground"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -467,23 +420,6 @@ function AgenciesPanel({
         ))}
       </ul>
     </div>
-  );
-}
-
-function Footer({
-  agencies,
-}: {
-  agencies: { _id: string; name: string }[] | undefined;
-}) {
-  return (
-    <footer className="border-t border-border mt-8">
-      <div className="max-w-6xl mx-auto px-6 py-4 text-xs text-foreground/40 flex flex-row flex-wrap gap-x-2 gap-y-1">
-        {agencies && agencies.length > 0 && (
-          <span>{agencies.length} régies : {agencies.map((a) => a.name).join(", ")}</span>
-        )}
-        <span className="ml-auto">© {new Date().getFullYear()} firstkey</span>
-      </div>
-    </footer>
   );
 }
 
