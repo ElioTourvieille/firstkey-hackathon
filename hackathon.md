@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** gpt-4o-mini (direct fetch, not the Convex AI Gateway)
 - **Started:** 2026-08-26T11:58:52Z
-- **Last updated:** 2026-09-10T09:05:11Z
+- **Last updated:** 2026-09-10T14:29:08Z
 
 ## Log
 
@@ -198,3 +198,58 @@ English `CLAUDE.md`, which reflects the resolved state as of 2026-09-09.
 Also widened `tsconfig.json`'s include globs to cover `dist/types` and
 `dist/dev/types` (static-export typecheck). No Convex backend code changed;
 nothing deployed.
+
+### 2026-09-10 - 6f69fd1
+Built the design pass flagged in the previous entry: the public feed now
+actually renders the Swiss-Style design system instead of the plain
+unstyled version. Added `agencies.listPublic` (public query — name and
+`lastCrawledAt` only, never `contactEmail`/`listingsUrl`) to back a real
+"régies suivies" panel; rewrote `app/page.tsx` with a 4-tab nav (3 tabs
+disabled — no routes exist yet), an activity strip driven by real
+`firstSeenAt`, and client-side filters (rooms/budget/quartier) over
+listings already loaded, no extra server calls. Every mockup element
+without a real Convex-backed equivalent (photos, network latency, per-agency
+scan cadence, reference codes, amenity tags, a "dossier prêt" completion
+badge) was dropped rather than simulated, per the design system's rule.
+Copy switched to French. `app/globals.css` now carries the design system's
+palette, light-only (dark mode removed — no dark mockup exists). Convex
+features: public query (`convex/agencies.ts`, `app/page.tsx`). Deployed to
+prod (`outstanding-malamute-184`) the same session; verified HTTP 200
+post-deploy using a one-shot prod deploy key, immediately revoked.
+
+### 2026-09-10 - 36802e7
+Added the profile page (`design/profile.png`), the 3rd nav tab going from
+disabled to active — and closed a real gap found while scoping it: no
+public mutation existed to create or edit a renter's own profile, only
+`seed.ts` could insert one, dev-only. Added `profiles.myProfile` (read) and
+`profiles.upsertMine` (create-or-update, identity-scoped, single market
+resolved server-side) — the actual missing feature, not just the screen.
+Extended `profiles` with two new optional fields, `surfaceMin` and
+`quartiers` (Geneva postal codes) — additive, no migration, existing docs
+unaffected — and updated `isMatch` (`convex/lib/matching.ts`) to use them,
+staying permissive when a listing is missing the surface/address data to
+check against. New route `app/profile/page.tsx`, static-export, behind
+`AuthGate`; form state seeded via a key-based remount instead of a
+`useEffect` (avoids the cascading-render pattern ESLint's
+`react-hooks/set-state-in-effect` flags). Real Clerk avatar/name, and a
+completion ratio computed from actually-filled required fields rather than
+an invented score. Extracted `Header`/`Footer`/`ToggleChip` into shared
+components and `GENEVA_DISTRICTS` into a shared module so both screens use
+the same nav/footer/toggle-pill instead of duplicating them. Dropped from
+the mockup, per product-scope decisions made the same day: an
+income/solvency block (sensitive financial data, no use in matching),
+document uploads (needs Convex file storage — its own feature), a fake
+reference code, an AI "pitch wizard" button with "variables détectées" tags
+(no such capability exists), fabricated latency. Also added a client-side
+"Surface minimale" filter to the public feed (`surfaceM2` was already
+loaded and displayed but not filterable) — not in the original mockup,
+added on request; unlike the matching predicate, this explicit user filter
+hides listings with unknown surface rather than showing them. Schema and
+functions pushed to dev (`clever-toucan-312`) and verified deployable;
+nothing pushed to prod for this one yet.
+
+### 2026-09-10 - working tree
+Added `suppressHydrationWarning` to the root `<html>` in `app/layout.tsx`.
+Uncommitted — not yet explained by a commit message, so logged as-is
+without guessing the exact trigger (a Clerk/theme hydration mismatch is the
+likely usual cause of this attribute, but that's inference, not evidence).

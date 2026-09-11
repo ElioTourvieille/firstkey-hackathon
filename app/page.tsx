@@ -1,21 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Authenticated, Unauthenticated, useAction, useQuery } from "convex/react";
+import Link from "next/link";
+import { Authenticated, Unauthenticated, useQuery } from "convex/react";
 import { SignUpButton, SignInButton } from "@clerk/clerk-react";
 import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
 import { GENEVA_DISTRICTS } from "@/lib/geneva-districts";
+import { formatRelativeTime } from "@/lib/format";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ToggleChip from "@/components/ToggleChip";
-
-const STATUS_LABEL: Record<string, { label: string; className: string }> = {
-  new: { label: "Nouveau", className: "text-status-new" },
-  matched: { label: "Correspond à un profil", className: "text-status-new" },
-  contacted: { label: "En attente de réponse", className: "text-status-pending" },
-  replied: { label: "Réponse reçue", className: "text-accent" },
-};
+import ListingCard, { FeedListing } from "@/components/ListingCard";
+import Outreach from "@/components/Outreach";
 
 const ROOM_FILTERS = [1.5, 2.5, 3.5, 4.5];
 
@@ -139,27 +135,6 @@ export default function Home() {
   );
 }
 
-type PublicListing = {
-  _id: string;
-  title: string;
-  url: string;
-  priceChf: number;
-  rooms: number;
-  surfaceM2?: number;
-  address?: string;
-  agencyName: string;
-};
-
-// listings:listPublic returns status/firstSeenAt too; profiles:myMatches
-// (a distinct, narrower, identity-scoped validator — see convex/profiles.ts)
-// deliberately doesn't, since a match's status is implied by it appearing
-// in "your matches" at all. ListingCard renders the status/time row only
-// when they're present.
-type FeedListing = PublicListing & {
-  status: "new" | "matched" | "contacted" | "replied";
-  firstSeenAt: number;
-};
-
 // The one real "live" signal on this screen: the most recently detected
 // listing, with a relative time computed from `firstSeenAt`. Re-renders
 // every 30s so the relative time doesn't go stale while the tab stays open.
@@ -167,7 +142,7 @@ function ActivityTicker({
   listings,
   agencyCount,
 }: {
-  listings: FeedListing[] | undefined;
+  listings: (FeedListing & { firstSeenAt: number })[] | undefined;
   agencyCount: number | undefined;
 }) {
   const [, forceTick] = useState(0);
@@ -324,7 +299,11 @@ function FiltersBar({
 // opening the site with zero login must see the product working. Only
 // account-specific chrome (the header above) and the matches section below
 // are auth-gated.
-function ListingsFeed({ listings }: { listings: FeedListing[] | undefined }) {
+function ListingsFeed({
+  listings,
+}: {
+  listings: (FeedListing & { firstSeenAt: number })[] | undefined;
+}) {
   if (listings === undefined) {
     return <p className="text-foreground/50 py-8">Chargement des annonces…</p>;
   }
@@ -340,7 +319,7 @@ function ListingsFeed({ listings }: { listings: FeedListing[] | undefined }) {
   return (
     <ul className="flex flex-col gap-3">
       {listings.map((listing) => (
-        <ListingCard key={listing._id} listing={listing} />
+        <ListingCard key={listing._id} listing={listing} firstSeenAt={listing.firstSeenAt} />
       ))}
     </ul>
   );
@@ -348,7 +327,9 @@ function ListingsFeed({ listings }: { listings: FeedListing[] | undefined }) {
 
 // Authenticated: the signed-in tenant's own listings matching their own
 // profile (convex/profiles.ts:myMatches). Renders nothing if they don't
-// have a profile yet — profile creation is a separate, not-yet-built page.
+// have a profile yet — profile creation is a separate page (/profile).
+// This inline summary stays (quick glance from the home feed); the full
+// two-pane view with sent inquiries lives at /matches.
 function MyMatches() {
   const matches = useQuery(api.profiles.myMatches);
 
@@ -356,13 +337,18 @@ function MyMatches() {
 
   return (
     <section className="border border-border rounded-sm p-4 flex flex-col gap-3">
-      <p className="text-xs uppercase tracking-wide text-foreground/50 font-mono">
-        Vos correspondances
-      </p>
+      <div className="flex flex-row items-center justify-between">
+        <p className="text-xs uppercase tracking-wide text-foreground/50 font-mono">
+          Vos correspondances
+        </p>
+        <Link href="/matches" className="text-xs text-accent hover:underline">
+          Tout voir →
+        </Link>
+      </div>
       <ul className="flex flex-col gap-4">
-        {matches.map((listing) => (
+        {matches.slice(0, 3).map((listing) => (
           <li key={listing._id} className="flex flex-col gap-2">
-            <ListingCard listing={listing} />
+            <ListingCard listing={listing} firstSeenAt={listing.firstSeenAt} />
             <Outreach listingId={listing._id} />
           </li>
         ))}
@@ -421,148 +407,4 @@ function AgenciesPanel({
       </ul>
     </div>
   );
-}
-
-function ListingCard({ listing }: { listing: PublicListing | FeedListing }) {
-  // Only listings:listPublic carries status/firstSeenAt — see the
-  // `FeedListing` comment above. profiles:myMatches omits them on purpose,
-  // so this row is skipped there rather than rendered with fake data.
-  const status = "status" in listing ? STATUS_LABEL[listing.status] : null;
-
-  return (
-    <div className="border border-border rounded-sm p-4 flex flex-col gap-1.5">
-      <div className="flex flex-row items-center justify-between gap-2 text-xs">
-        {status ? (
-          <span className={`font-mono uppercase tracking-wide ${status.className}`}>
-            ● {status.label}
-          </span>
-        ) : (
-          <span />
-        )}
-        <span className="text-foreground/40 font-mono">
-          {"firstSeenAt" in listing ? `${formatRelativeTime(listing.firstSeenAt)} · ` : ""}
-          {listing.agencyName}
-        </span>
-      </div>
-      <a
-        href={listing.url}
-        target="_blank"
-        rel="noreferrer"
-        className="font-semibold hover:underline"
-      >
-        {listing.title}
-      </a>
-      <p className="text-sm text-foreground/60 font-mono">
-        {listing.priceChf.toLocaleString()} CHF/mois · {listing.rooms} pièces
-        {listing.surfaceM2 ? ` · ${listing.surfaceM2} m²` : ""}
-      </p>
-      {listing.address && (
-        <p className="text-xs text-foreground/40">{listing.address}</p>
-      )}
-    </div>
-  );
-}
-
-// Draft -> human edit -> explicit send, for one matched listing. This is
-// the only place in the app that can ever call agentmail:sendInquiry — no
-// automatic trigger exists anywhere else. Sending is disabled until the
-// tenant has actually looked at and (if needed) edited the draft.
-function Outreach({ listingId }: { listingId: string }) {
-  const draftMyInquiry = useAction(api.openai.draftMyInquiry);
-  // agentmail:sendInquiry is an action (it does a real fetch to AgentMail's
-  // API), not a mutation — see convex/agentmail.ts for why. It resolves
-  // synchronously with the final result, no async status to poll.
-  const sendInquiry = useAction(api.agentmail.sendInquiry);
-
-  const [draft, setDraft] = useState<string | null>(null);
-  const [drafting, setDrafting] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState<{ agentmailMessageId: string } | null>(null);
-
-  async function handleDraft() {
-    setError(null);
-    setDrafting(true);
-    try {
-      const text = await draftMyInquiry({ listingId: listingId as Id<"listings"> });
-      setDraft(text);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to draft the message");
-    } finally {
-      setDrafting(false);
-    }
-  }
-
-  async function handleSend() {
-    if (!draft) return;
-    setError(null);
-    setSending(true);
-    try {
-      const result = await sendInquiry({ listingId: listingId as Id<"listings">, text: draft });
-      setSent({ agentmailMessageId: result.agentmailMessageId });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send the message");
-    } finally {
-      setSending(false);
-    }
-  }
-
-  if (sent) {
-    return <p className="text-sm text-foreground/50">Envoyée.</p>;
-  }
-
-  if (draft === null) {
-    return (
-      <div className="flex flex-col gap-1">
-        <button
-          onClick={handleDraft}
-          disabled={drafting}
-          className="self-start border border-foreground px-3 py-1 rounded-sm text-sm disabled:opacity-50"
-        >
-          {drafting ? "Rédaction…" : "Rédiger la candidature"}
-        </button>
-        {error && <p className="text-sm text-accent">{error}</p>}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      <textarea
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        rows={6}
-        className="border border-border rounded-sm p-2 text-sm bg-background"
-      />
-      <div className="flex flex-row gap-2">
-        <button
-          onClick={handleSend}
-          disabled={sending || draft.trim().length === 0}
-          className="self-start bg-foreground text-background px-3 py-1 rounded-sm text-sm disabled:opacity-50"
-        >
-          {sending ? "Envoi…" : "Envoyer"}
-        </button>
-        <button
-          onClick={() => setDraft(null)}
-          className="self-start border border-foreground px-3 py-1 rounded-sm text-sm"
-        >
-          Annuler
-        </button>
-      </div>
-      {error && <p className="text-sm text-accent">{error}</p>}
-    </div>
-  );
-}
-
-function formatRelativeTime(ms: number): string {
-  const diffMs = Date.now() - ms;
-  const diffSec = Math.max(0, Math.floor(diffMs / 1000));
-  if (diffSec < 10) return "à l'instant";
-  if (diffSec < 60) return `il y a ${diffSec}s`;
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `il y a ${diffMin} min`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `il y a ${diffH}h`;
-  const diffJ = Math.floor(diffH / 24);
-  return `il y a ${diffJ} j`;
 }

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalAction, internalMutation, action, query, env } from "./_generated/server";
 import { components, internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
+import { matchedListingValidator } from "./profiles";
 
 // No `new AgentMail(components.agentmail)` client instance here — every
 // operation in this file goes through agentmailFetch (direct REST) or the
@@ -185,6 +186,70 @@ export const sendInquiry = action({
       agentmailMessageId: response.message_id,
       agentmailThreadId: response.thread_id,
     };
+  },
+});
+
+// Public, identity-scoped: the signed-in tenant's own sent inquiries, with
+// enough listing/agency context to render a card — never `contactEmail`.
+// The real reason this exists: `listings:status` flips to "contacted" the
+// moment an inquiry is sent (see recordSentInquiry above), which is exactly
+// what makes profiles:myMatches stop returning that listing — so without
+// this query, a sent inquiry simply vanishes from the app with no record a
+// user can see. Doesn't return the email text itself: `inquiries` only ever
+// stored the AgentMail ids + status/sentAt, never the body (see
+// convex/schema.ts's comment on `outboundId`) — out of scope to add here.
+export const myInquiries = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("inquiries"),
+      status: v.union(v.literal("sent"), v.literal("replied"), v.literal("closed")),
+      sentAt: v.number(),
+      listing: matchedListingValidator,
+    }),
+  ),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const [profile] = await ctx.db
+      .query("profiles")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .take(1);
+    if (!profile) return [];
+
+    const inquiries = await ctx.db
+      .query("inquiries")
+      .withIndex("by_profile", (q) => q.eq("profileId", profile._id))
+      .collect();
+
+    const withListings = await Promise.all(
+      inquiries.map(async (inquiry) => {
+        const listing = await ctx.db.get("listings", inquiry.listingId);
+        if (!listing) return null;
+        const agency = await ctx.db.get("agencies", listing.agencyId);
+        return {
+          _id: inquiry._id,
+          status: inquiry.status,
+          sentAt: inquiry.sentAt,
+          listing: {
+            _id: listing._id,
+            title: listing.title,
+            url: listing.url,
+            priceChf: listing.priceChf,
+            rooms: listing.rooms,
+            surfaceM2: listing.surfaceM2,
+            address: listing.address,
+            firstSeenAt: listing.firstSeenAt,
+            agencyName: agency?.name ?? "Unknown agency",
+          },
+        };
+      }),
+    );
+
+    return withListings
+      .filter((i): i is NonNullable<typeof i> => i !== null)
+      .sort((a, b) => b.sentAt - a.sentAt);
   },
 });
 
