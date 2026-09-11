@@ -32,7 +32,7 @@ export const getByUserId = internalQuery({
 });
 
 // Same safe subset as listings:listPublic — never agencies.contactEmail.
-const matchedListingValidator = v.object({
+export const matchedListingValidator = v.object({
   _id: v.id("listings"),
   title: v.string(),
   url: v.string(),
@@ -40,6 +40,7 @@ const matchedListingValidator = v.object({
   rooms: v.number(),
   surfaceM2: v.optional(v.number()),
   address: v.optional(v.string()),
+  firstSeenAt: v.number(),
   agencyName: v.string(),
 });
 
@@ -84,6 +85,7 @@ export const myMatches = query({
           rooms: listing.rooms,
           surfaceM2: listing.surfaceM2,
           address: listing.address,
+          firstSeenAt: listing.firstSeenAt,
           agencyName: agency?.name ?? "Unknown agency",
         };
       }),
