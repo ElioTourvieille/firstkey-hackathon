@@ -108,6 +108,39 @@ export const recordSentInquiry = internalMutation({
   },
 });
 
+// Fired for every real inbound message.received event, once AgentMail's
+// webhook (registered manually via their dashboard — see
+// prompts/agentmail-inbound.md; nothing in this repo registers it via the
+// API) delivers it to convex/http.ts. Closes the loop `recordSentInquiry`
+// opens above: flips the matching inquiry from "sent" to "replied" (found
+// by `agentmailThreadId`, the same id captured synchronously at send time —
+// no lookup ambiguity), and the underlying listing's status to match. This
+// is the one piece of the schema's "replied" state (see convex/schema.ts)
+// that nothing set before this function existed.
+//
+// `message`/`thread` are typed `unknown` by the component itself (see
+// AgentMailOptions in @agentmail/convex) — only `thread_id` is read here,
+// confirmed snake_case against AgentMail's real webhook event docs.
+export const onMessageReceived = internalMutation({
+  args: { message: v.any(), thread: v.any(), eventId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const threadId = (args.message as { thread_id?: string } | null)?.thread_id;
+    if (!threadId) return null;
+
+    const inquiries = await ctx.db.query("inquiries").collect();
+    const inquiry = inquiries.find((i) => i.agentmailThreadId === threadId);
+    if (!inquiry) return null; // Not a thread we're tracking.
+
+    if (inquiry.status === "sent") {
+      await ctx.db.patch("inquiries", inquiry._id, { status: "replied" });
+      await ctx.db.patch("listings", inquiry.listingId, { status: "replied" });
+    }
+
+    return null;
+  },
+});
+
 // Sends the (human-reviewed) inquiry text to the listing's agency.
 // PUBLIC, but manual-trigger only: nothing in this codebase calls this
 // automatically — not matching.ts, not a cron. `text` must be the exact,

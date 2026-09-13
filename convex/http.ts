@@ -1,9 +1,16 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
-import { components } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import { AgentMail } from "@agentmail/convex";
 
-const agentmail = new AgentMail(components.agentmail);
+// onMessageReceived: convex/agentmail.ts:onMessageReceived — the only place
+// that flips inquiries.status/listings.status to "replied" when a real
+// reply lands. See prompts/agentmail-inbound.md for how the webhook itself
+// got registered (manually, via AgentMail's dashboard — not by any code in
+// this repo).
+const agentmail = new AgentMail(components.agentmail, {
+  onMessageReceived: internal.agentmail.onMessageReceived,
+});
 const http = httpRouter();
 
 // AgentMail delivers inbound mail + delivery-status events here. Verified
