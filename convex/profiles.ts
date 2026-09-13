@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { internalQuery, mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query, QueryCtx } from "./_generated/server";
+import { Id } from "./_generated/dataModel";
 import { isMatch } from "./lib/matching";
 import schema from "./schema";
 
@@ -111,10 +112,31 @@ export const myProfile = query({
   },
 });
 
+// Resolves "the" active market as whichever one actually backs agencies —
+// not just `markets.take(1)`. Dev has accumulated a few near-duplicate rows
+// all named "Geneva" from earlier ad-hoc testing (a manual seed, an
+// AgentMail-verification seed, ...); grabbing an arbitrary first row can
+// land on an empty one, silently orphaning a profile from every listing
+// (confirmed the hard way: `js7cm7fj59wb5ws0q4eazn11jn8d8npg` has 0
+// listings vs. the real market's 62). Counting agencies per market and
+// taking the max is a self-correcting heuristic that doesn't depend on
+// cleaning up that test debris, and still does the right thing once this
+// product genuinely has more than one market.
+async function resolveActiveMarketId(ctx: { db: QueryCtx["db"] }) {
+  const counts = new Map<Id<"markets">, number>();
+  for (const agency of await ctx.db.query("agencies").collect()) {
+    counts.set(agency.marketId, (counts.get(agency.marketId) ?? 0) + 1);
+  }
+  const [marketId] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0] ?? [];
+  return marketId ?? null;
+}
+
 // Public, identity-scoped: create or update the signed-in tenant's own
 // profile (by_user index — at most one per user). `marketId` is resolved
-// server-side rather than picked in the UI: only one market ("Geneva")
-// exists today, so there's nothing for a market picker to do yet.
+// server-side rather than picked in the UI (no market picker exists), and
+// re-resolved on every save — including an update — so a profile created
+// while `resolveActiveMarketId` above still had the old `.take(1)` bug
+// self-heals the next time its owner hits "Enregistrer".
 export const upsertMine = mutation({
   args: {
     budgetMax: v.number(),
@@ -129,22 +151,22 @@ export const upsertMine = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not signed in");
 
+    const marketId = await resolveActiveMarketId(ctx);
+    if (!marketId) throw new Error("No market with any agency configured — run seed:seedAgency first");
+
     const [existing] = await ctx.db
       .query("profiles")
       .withIndex("by_user", (q) => q.eq("userId", identity.subject))
       .take(1);
 
     if (existing) {
-      await ctx.db.patch("profiles", existing._id, args);
+      await ctx.db.patch("profiles", existing._id, { ...args, marketId });
       return existing._id;
     }
 
-    const [market] = await ctx.db.query("markets").take(1);
-    if (!market) throw new Error("No market configured — run seed:seedAgency first");
-
     return await ctx.db.insert("profiles", {
       userId: identity.subject,
-      marketId: market._id,
+      marketId,
       ...args,
     });
   },
