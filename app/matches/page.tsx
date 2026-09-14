@@ -11,6 +11,7 @@ import Footer from "@/components/Footer";
 import ListingCard from "@/components/ListingCard";
 import Outreach from "@/components/Outreach";
 import { formatRelativeTime } from "@/lib/format";
+import { InquiryStatus, INQUIRY_STATUS_LABEL } from "@/lib/inquiry-status";
 
 type PendingListing = {
   _id: string;
@@ -26,7 +27,7 @@ type PendingListing = {
 
 type SentInquiry = {
   _id: string;
-  status: "sent" | "replied" | "closed";
+  status: InquiryStatus;
   sentAt: number;
   listing: PendingListing;
 };
@@ -34,12 +35,6 @@ type SentInquiry = {
 type Item =
   | { kind: "pending"; key: string; ts: number; listing: PendingListing }
   | { kind: "sent"; key: string; ts: number; inquiry: SentInquiry };
-
-const INQUIRY_STATUS_LABEL: Record<SentInquiry["status"], { label: string; className: string }> = {
-  sent: { label: "Candidature envoyée", className: "text-status-pending" },
-  replied: { label: "Réponse reçue", className: "text-accent" },
-  closed: { label: "Fermée", className: "text-foreground/40" },
-};
 
 export default function MatchesPage() {
   return (

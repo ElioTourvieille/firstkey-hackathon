@@ -13,7 +13,7 @@ type NavTab = { label: string; href: string | null };
 const NAV_TABS: NavTab[] = [
   { label: "Flux public", href: "/" },
   { label: "Mes correspondances", href: "/matches" },
-  { label: "Messagerie régies", href: null },
+  { label: "Messagerie régies", href: "/messenger" },
   { label: "Mon profil", href: "/profile" },
 ];
 
