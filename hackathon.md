@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** gpt-4o-mini (direct fetch, not the Convex AI Gateway)
 - **Started:** 2026-08-26T11:58:52Z
-- **Last updated:** 2026-09-10T14:29:08Z
+- **Last updated:** 2026-09-12T16:08:41Z
 
 ## Log
 
@@ -253,3 +253,70 @@ Added `suppressHydrationWarning` to the root `<html>` in `app/layout.tsx`.
 Uncommitted — not yet explained by a commit message, so logged as-is
 without guessing the exact trigger (a Clerk/theme hydration mismatch is the
 likely usual cause of this attribute, but that's inference, not evidence).
+
+### 2026-09-11 - dc4685c
+Added the "Mes correspondances" screen (2nd nav tab, disabled until now):
+a two-pane layout, pending matches and already-sent inquiries in one list
+on the left, a detail/compose panel on the right. Closed a real gap found
+while building it — `listings.status` flips to `"contacted"` the moment an
+inquiry is sent, which is exactly what makes `profiles.myMatches` stop
+returning that listing, so a sent inquiry used to simply vanish with no
+record anywhere in the UI. Added `agentmail.myInquiries` (identity-scoped,
+never `contactEmail`) to fix that. Extracted `ListingCard`, `Outreach`, and
+a shared relative-time formatter out of `app/page.tsx` so all three screens
+(feed, profile, matches) use the same components. Convex features: public
+query (`convex/agentmail.ts`), exported validator reuse
+(`convex/profiles.ts`). Merged via PR #5.
+
+The mockup for this screen showed the agency's real contact email in
+plain text in a "recipient" panel — a direct violation of this project's
+own rule that `contactEmail` never reaches the client. Removed from the
+build entirely, not just hidden in the UI; also dropped a fake dispatch
+ID, an income/solvency block, a document-attachment mock, an "optimized
+per agency" claim (no such prompt tuning exists), an SMS opt-in (no SMS
+integration anywhere in the project), and a fabricated neighborhood
+rent-comparison chart.
+
+### 2026-09-11/12 - 67cf2ce (recovered onto PR #6, market fix from PR #7)
+Two things landed together after a real debugging session:
+
+1. **Market-resolution bug, found via manual testing.** A real user profile
+   with sensible criteria (budget, rooms, surface, preferred quartiers)
+   returned zero matches. Root cause, confirmed by inspecting dev's tables
+   directly: `profiles.upsertMine` picked "the" market with
+   `markets.take(1)` — an arbitrary first row — and dev has accumulated
+   three near-duplicate "Geneva" market rows from earlier ad-hoc testing.
+   The profile landed on an empty one (0 listings) instead of the real
+   market (62 listings). Fixed by resolving the active market as whichever
+   one actually backs the most agencies — self-correcting, no data cleanup
+   needed. **This fix was accidentally dropped**: it was pushed to the same
+   branch as an already-open PR, but that PR got merged at a moment when
+   GitHub still pointed at the prior commit, so the fix never reached
+   `master`. Caught by inspecting the commit graph (`git merge-base
+   --is-ancestor`) rather than assuming a merged PR meant fully up to date;
+   recovered via a clean cherry-pick into two open PRs (#6, #7).
+2. **Closed CLAUDE.md's Open Issue #3 ("inbound replies unhandled").**
+   Diagnosed before writing code: `AGENTMAIL_WEBHOOK_SECRET` was never set,
+   and a live call to AgentMail's own API confirmed zero webhooks had ever
+   been registered — the webhook route in `convex/http.ts` existed but
+   AgentMail had never been told to call it. The endpoint was registered
+   manually via AgentMail's dashboard (a real, deliberate action on the
+   live account, done with explicit sign-off), and
+   `agentmail.onMessageReceived` (new internal mutation) now flips a
+   tracked `inquiries`/`listings` row to `"replied"` when a real reply
+   arrives — the one piece of the schema's `"replied"` state that nothing
+   set before this.
+
+**Verified for real, not just "the code compiles":** an actual test email
+sent to the project's AgentMail inbox triggered the live webhook
+end-to-end (confirmed in Convex's function logs — the HTTP handler, the
+component's event dispatch, and the callback workpool all executed with
+no errors). That email was a new, untracked thread, so no status changed —
+correct behavior. The "flip to replied" branch itself was then confirmed
+by invoking `onMessageReceived` with a real, previously-tracked thread id
+from `inquiries`: both `inquiries.status` and the linked
+`listings.status` flipped from `"sent"` to `"replied"` as designed.
+
+Both fixes are pushed to dev (`clever-toucan-312`) and confirmed working
+end-to-end. **Not yet merged to `master`**: PR #6 (webhook) and PR #7
+(market fix) are open, mergeable, no conflicts — pending merge.

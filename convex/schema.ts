@@ -72,5 +72,21 @@ export default defineSchema({
   })
     .index("by_listing", ["listingId"])
     .index("by_profile", ["profileId"])
-    .index("by_outboundId", ["outboundId"]),
+    .index("by_outboundId", ["outboundId"])
+    .index("by_agentmail_thread", ["agentmailThreadId"]),
+
+  // Every message WE send on an inquiry — the initial cold outreach and
+  // any later reply. Added because inquiries only ever stored AgentMail
+  // ids + status/sentAt, never the text; a real thread view needs it, and
+  // a single field on `inquiries` isn't enough once replies exist (a
+  // thread can have several outbound messages over time). Inbound
+  // messages (the agency's replies) are never duplicated here — they stay
+  // live in @agentmail/convex's own table, read via
+  // components.agentmail.lib.listInboundMessages.
+  outboundMessages: defineTable({
+    inquiryId: v.id("inquiries"),
+    text: v.string(),
+    agentmailMessageId: v.string(),
+    sentAt: v.number(),
+  }).index("by_inquiry", ["inquiryId"]),
 });
