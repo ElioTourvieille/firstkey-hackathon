@@ -149,3 +149,23 @@ export const clearListings = internalMutation({
     return { deleted };
   },
 });
+
+// Dev-only cleanup: remove a seeded agency entirely (e.g. a sandbox agency
+// created for a safe end-to-end AgentMail test). Refuses if it still has
+// listings — run clearListings first — so this can't silently orphan
+// listings/inquiries that still reference the agency.
+export const deleteAgency = internalMutation({
+  args: { agencyId: v.id("agencies") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const [remaining] = await ctx.db
+      .query("listings")
+      .withIndex("by_agency", (q) => q.eq("agencyId", args.agencyId))
+      .take(1);
+    if (remaining) {
+      throw new Error("Agency still has listings — run seed:clearListings first");
+    }
+    await ctx.db.delete("agencies", args.agencyId);
+    return null;
+  },
+});
