@@ -1,0 +1,69 @@
+1
+00:00:00,000 --> 00:00:04,000
+firstkey — a rental copilot for Geneva
+Built for the Convex All Gas Hackathon
+
+2
+00:00:04,500 --> 00:00:08,000
+The public listing feed — live, no login required
+
+3
+00:00:08,500 --> 00:00:16,000
+Filter by rooms, budget, surface, and neighborhood
+All client-side, instant — reactive Convex queries
+
+4
+00:00:17,000 --> 00:00:24,000
+Sign in with Clerk to set up a real search profile
+
+5
+00:00:25,000 --> 00:00:30,500
+Budget, rooms, and a personal pitch —
+sent with every application
+
+6
+00:00:31,000 --> 00:00:40,000
+Real matches. Firecrawl indexes these listings
+straight from agency websites —
+
+7
+00:00:40,500 --> 00:00:46,000
+before they ever reach the big rental portals
+
+8
+00:00:47,000 --> 00:00:53,000
+OpenAI (gpt-4o-mini) drafts a personalized
+application from the renter's profile
+
+9
+00:00:53,500 --> 00:00:58,000
+Editable — nothing sends without a human reviewing it first
+
+10
+00:00:59,000 --> 00:01:04,000
+Sending goes through AgentMail —
+a real email, only on explicit click
+
+11
+00:01:05,500 --> 00:01:12,000
+A reply — arriving live, synced back
+by AgentMail's webhook in real time
+
+12
+00:01:13,000 --> 00:01:20,000
+The full thread: the application sent,
+and the agency's real reply
+
+13
+00:01:21,000 --> 00:01:28,000
+Status updates everywhere, live —
+the public feed reflects the reply too
+
+14
+00:01:29,000 --> 00:01:36,000
+Every listing links back to its real source —
+straight from the agency's own site, not a portal
+
+15
+00:01:37,000 --> 00:01:40,600
+firstkey — built with Convex, Firecrawl, OpenAI, and AgentMail

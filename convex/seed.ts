@@ -163,9 +163,40 @@ export const deleteAgency = internalMutation({
       .withIndex("by_agency", (q) => q.eq("agencyId", args.agencyId))
       .take(1);
     if (remaining) {
-      throw new Error("Agency still has listings — run seed:clearListings first");
+      throw new Error(
+        "Agency still has listings — run seed:clearListings first",
+      );
     }
     await ctx.db.delete("agencies", args.agencyId);
+    return null;
+  },
+});
+
+// Dev-only: repoint a seeded sandbox agency's contact address — used when
+// the original safe address turns out not to work for testing inbound
+// replies (a self-to-self inbox can't produce a real external
+// message.received event; replying "as" the inbox from its own dashboard
+// is a message.sent, not a reply from a real third party — confirmed the
+// hard way against the real API on 2026-09-21).
+export const patchAgencyContactEmail = internalMutation({
+  args: { agencyId: v.id("agencies"), contactEmail: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch("agencies", args.agencyId, {
+      contactEmail: args.contactEmail,
+    });
+    return null;
+  },
+});
+
+// Dev-only: reset a listing back to "new" so it reappears in myMatches for
+// a fresh draft->send cycle — e.g. after fixing the sandbox agency's
+// contact email above, to resend the test to the corrected address.
+export const resetListingStatus = internalMutation({
+  args: { listingId: v.id("listings") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch("listings", args.listingId, { status: "new" });
     return null;
   },
 });

@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** gpt-4o-mini (direct fetch, not the Convex AI Gateway)
 - **Started:** 2026-08-26T11:58:52Z
-- **Last updated:** 2026-09-12T16:08:41Z
+- **Last updated:** 2026-09-21T08:47:34Z
 
 ## Log
 
@@ -320,3 +320,69 @@ from `inquiries`: both `inquiries.status` and the linked
 Both fixes are pushed to dev (`clever-toucan-312`) and confirmed working
 end-to-end. **Not yet merged to `master`**: PR #6 (webhook) and PR #7
 (market fix) are open, mergeable, no conflicts — pending merge.
+
+### 2026-09-14 - c48c8d0
+Added the messenger screen (`design/messenger.png`), the 4th and last nav
+tab, going from disabled to active — every screen from the design pass is
+now built. Two decisions made explicit before writing code: store the text
+of every message this app sends (not `inquiries` alone — a new
+`outboundMessages` table, since a thread can carry more than one outbound
+message once replies exist), and add the first-ever reply-send capability
+(`agentmail.replyToInquiry`), verified against AgentMail's real API before
+coding (`POST /inboxes/{id}/messages/{message_id}/reply`, same response
+shape as the existing send endpoint). `agentmail.myThread` rewritten to
+merge our own `outboundMessages` with the agency's real inbound replies
+(already reactive via the webhook) into one chronological thread. Same
+send-safety rules apply to the new reply action as to the original send:
+never automatic, first real reply needs explicit confirmation, never
+straight to a real agency. Also fixed an unbounded `ctx.db.query
+("inquiries").collect()` flagged by the project's own lint tooling while
+in the file, by adding a proper index. Convex features: new table
+(`outboundMessages`), new index, action, mutation, reactive query merge.
+
+Dropped from the mockup: a fabricated "chiffrement bout-en-bout RSA-4096"
+claim (a false security claim, not just an unbacked one — treated more
+seriously than a normal omission), invented statuses, a 24h-SLA
+countdown, a fake secure-access block with a door code, AI "smart-reply"
+buttons, and calendar sync.
+
+### 2026-09-14/18 - PRs #8 and #9 merged; same drop-on-merge pattern hit
+a 3rd time
+PR #8 (messenger) and PR #9 (a small dev-only `seed:deleteAgency` cleanup
+helper, no runtime impact) both merged. The `deleteAgency` commit hit the
+exact same failure mode already logged on 2026-09-11/12 — pushed to a
+branch after its PR had already been merged, so it never reached
+`master` on the first pass. Caught the same way (`git merge-base
+--is-ancestor`), recovered via a clean cherry-pick PR (#9). Low-stakes
+this time — the dropped commit was an admin helper for cleaning up test
+data, never called by the running app.
+
+### 2026-09-18 - prod deployment
+Deployed the full merged `master` (public feed redesign, profile,
+matches, messenger, the market-resolution fix, the real inbound-reply
+pipeline) to prod (`outstanding-malamute-184`) via a one-shot,
+immediately-revoked prod deploy key. Verified all four routes (`/`,
+`/profile`, `/matches`, `/messenger`) respond HTTP 200 post-deploy.
+
+Found and closed a real gap before it could surface mid-demo: the
+AgentMail webhook had only ever been registered against dev's URL —
+prod had no `AGENTMAIL_WEBHOOK_SECRET` and no webhook subscription
+pointing at it, so a real agency reply would have silently never arrived
+in prod's `/messenger`, even though sending worked fine (the send-side
+env vars were already on prod from the 2026-09-09 sync). Registered a
+second AgentMail webhook endpoint for prod's URL and set
+`AGENTMAIL_WEBHOOK_SECRET` on the prod deployment the same way as dev.
+
+Set up a safe end-to-end test on prod itself: seeded one real profile for
+the project owner's own account (prod had never had a profile before —
+zero rows), plus a clearly-labeled sandbox agency/listing in prod's real
+Geneva market with its contact address pointed at the project's own
+AgentMail test inbox, matching the seeded profile's real criteria. Lets
+the send → reply → messenger loop be tested on the live prod URL without
+any risk of a real agency ever receiving a test message. **Status as of
+this entry: the sandbox listing is live and visible in the real
+correspondences view, but the actual test send hasn't happened yet** —
+`inquiries` on prod is still empty, checked directly. Sandbox data stays
+in place until that test runs, then gets removed before submission (same
+reasoning as the write-up on 2026-09-11: a listing labeled "sandbox" has
+no place in what a judge sees).
